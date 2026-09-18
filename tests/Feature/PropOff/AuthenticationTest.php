@@ -15,7 +15,9 @@ class AuthenticationTest extends TestCase
     {
         $response = $this->get(route('login'));
 
-        $response->assertStatus(200);
+        // Auth is a drawer on the landing page, so this redirects rather than
+        // rendering a page of its own.
+        $response->assertRedirect('/?auth=login');
     }
 
     /** @test */
@@ -65,7 +67,7 @@ class AuthenticationTest extends TestCase
     {
         $response = $this->get(route('register'));
 
-        $response->assertStatus(200);
+        $response->assertRedirect('/?auth=register');
     }
 
     /** @test */
