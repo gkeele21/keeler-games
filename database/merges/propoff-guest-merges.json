@@ -26,5 +26,33 @@
     "source_name": "Daniela",
     "target_name": "daniela varney",
     "note": "Applied locally by hand, recorded here so production replays it. Guest joined by link; the account is the same person."
+  },
+  {
+    "source": 18,
+    "target": 139,
+    "source_name": "Deegen",
+    "target_name": "Deegen Varney",
+    "note": "Confirmed by Grant. Guest joined by link; the account is the same person."
+  },
+  {
+    "source": 123,
+    "target": 142,
+    "source_name": "Krista",
+    "target_name": "Krista Keele",
+    "note": "Confirmed by Grant. Guest joined by link; the account is the same person."
+  },
+  {
+    "source": 112,
+    "target": 141,
+    "source_name": "Tara",
+    "target_name": "Tara Busenbark",
+    "note": "Confirmed by Grant. There is only one Tara; this guest row holds her entry."
+  },
+  {
+    "source": 131,
+    "target": 141,
+    "source_name": "Tara",
+    "target_name": "Tara Busenbark",
+    "note": "Confirmed by Grant. Second guest row for the same Tara, with no entry of its own."
   }
 ]
