@@ -31,7 +31,7 @@ class InvitationSystemTest extends TestCase
         );
 
         // Invitation should be auto-created
-        $this->assertDatabaseHas('propoff_event_invitations', [
+        $this->assertDatabaseHas('propoff_invitations', [
             'group_id' => $group->id,
             'event_id' => $event->id,
             'is_active' => true,
@@ -54,7 +54,7 @@ class InvitationSystemTest extends TestCase
             'times_used' => 0,
         ]);
 
-        $this->assertDatabaseHas('propoff_event_invitations', [
+        $this->assertDatabaseHas('propoff_invitations', [
             'id' => $invitation->id,
             'event_id' => $event->id,
             'group_id' => $group->id,

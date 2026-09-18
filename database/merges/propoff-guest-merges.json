@@ -1,0 +1,23 @@
+[
+  {
+    "source": 103,
+    "target": 109,
+    "source_name": "Anthony Tarsi",
+    "target_name": "Anthony Tarsi",
+    "note": "UNCONFIRMED — full-name duplicate, both in group 12, neither has an entry."
+  },
+  {
+    "source": 35,
+    "target": 97,
+    "source_name": "Big Steve",
+    "target_name": "Big Steve",
+    "note": "UNCONFIRMED — full-name duplicate; #97 has the entry, #35 has none."
+  },
+  {
+    "source": 130,
+    "target": 94,
+    "source_name": "Lucy Marek",
+    "target_name": "Lucy Marek",
+    "note": "UNCONFIRMED — full-name duplicate; #94 has the entry, #130 has none."
+  }
+]

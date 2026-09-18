@@ -13,12 +13,32 @@ class CaptainInvitation extends Model
 {
     use HasFactory;
 
-    protected $table = 'propoff_captain_invitations';
+    /**
+     * Both invitation kinds share the unified `propoff_invitations` table. A
+     * captain link is the one with no group — it lets the holder create a group
+     * rather than join an existing one. The global scope keeps this model to
+     * those rows and the creating hook holds group_id null, so callers keep
+     * treating it as its own table.
+     */
+    protected $table = 'propoff_invitations';
 
     protected $fillable = [
         'event_id', 'token', 'max_uses', 'times_used', 'expires_at',
         'is_active', 'created_by',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::addGlobalScope('captainLink', function ($query) {
+            $query->whereNull($query->getModel()->getTable() . '.group_id');
+        });
+
+        static::creating(function ($invitation) {
+            $invitation->group_id = null;
+        });
+    }
 
     protected $attributes = [
         'is_active'  => true,
