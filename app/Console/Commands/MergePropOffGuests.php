@@ -20,12 +20,17 @@ class MergePropOffGuests extends Command
     protected $signature = 'propoff:merge-guests
         {--candidates : List guest credentials that look like someone already known}
         {--merge= : Perform a merge, given as SOURCE_ID:TARGET_ID}
-        {--dry-run : With --merge, report what would move without writing}';
+        {--from= : Apply a decision file (JSON), once per environment}
+        {--dry-run : Report what would move without writing}';
 
     protected $description = 'Fold PropOff guest credentials into the real person behind them';
 
     public function handle(UserMerger $merger): int
     {
+        if ($file = $this->option('from')) {
+            return $this->applyDecisionFile($merger, $file);
+        }
+
         if ($mergeSpec = $this->option('merge')) {
             return $this->performMerge($merger, $mergeSpec);
         }
@@ -158,5 +163,116 @@ class MergePropOffGuests extends Command
         $this->line('Then: <fg=green>php artisan propoff:merge-guests --merge=GUEST:MATCH --dry-run</>');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Apply a committed decision file, following this repo's convention that
+     * schema lives in migrations and data fixes live in a one-off idempotent
+     * script run once per environment (see
+     * docs/america-says-attendance-note.md).
+     *
+     * Which guest is which person is a human judgement, so the decisions are
+     * recorded once and replayed identically everywhere rather than being
+     * re-made per environment. Two properties make that safe:
+     *
+     *  - Idempotent. A source that no longer exists has already been merged, so
+     *    the entry is skipped. Re-running is a no-op.
+     *  - Verified. Each entry carries the names as they were when the call was
+     *    made, and a mismatch aborts rather than merging strangers. Ids are
+     *    only stable because every environment is restored from the same
+     *    production data; if that ever stops being true, this is what catches
+     *    it.
+     */
+    private function applyDecisionFile(UserMerger $merger, string $path): int
+    {
+        if (! is_file($path)) {
+            $this->error("No decision file at {$path}");
+
+            return self::FAILURE;
+        }
+
+        $decisions = json_decode((string) file_get_contents($path), true);
+
+        if (! is_array($decisions)) {
+            $this->error("{$path} is not valid JSON.");
+
+            return self::FAILURE;
+        }
+
+        $dry = $this->option('dry-run');
+        $applied = 0;
+        $skipped = 0;
+
+        if ($dry) {
+            DB::beginTransaction();
+        }
+
+        foreach ($decisions as $i => $d) {
+            $label = "entry {$i}";
+
+            foreach (['source', 'target', 'source_name', 'target_name'] as $required) {
+                if (! isset($d[$required])) {
+                    $this->error("{$label}: missing \"{$required}\".");
+                    $dry and DB::rollBack();
+
+                    return self::FAILURE;
+                }
+            }
+
+            $source = User::find($d['source']);
+            $target = User::find($d['target']);
+
+            if (! $source) {
+                $this->line("  <fg=gray>skip</> {$d['source_name']} (#{$d['source']}) — already merged");
+                $skipped++;
+                continue;
+            }
+
+            if (! $target) {
+                $this->error("{$label}: target #{$d['target']} ({$d['target_name']}) does not exist.");
+                $dry and DB::rollBack();
+
+                return self::FAILURE;
+            }
+
+            // The names are the guard against id drift between environments.
+            if (! $this->nameMatches($source, $d['source_name']) || ! $this->nameMatches($target, $d['target_name'])) {
+                $this->error(
+                    "{$label}: refusing — expected \"{$d['source_name']}\" -> \"{$d['target_name']}\", "
+                    . "found \"{$source->name}\" -> \"{$target->name}\". Ids have drifted; re-check the decisions.",
+                );
+                $dry and DB::rollBack();
+
+                return self::FAILURE;
+            }
+
+            try {
+                $moved = $merger->merge($source, $target);
+            } catch (RuntimeException $e) {
+                $this->error("{$label}: " . $e->getMessage());
+                $dry and DB::rollBack();
+
+                return self::FAILURE;
+            }
+
+            $detail = $moved ? implode(', ', array_map(fn ($n, $k) => "{$k}={$n}", $moved, array_keys($moved))) : 'nothing to move';
+            $this->line("  <fg=green>merged</> {$d['source_name']} (#{$d['source']}) into {$d['target_name']} (#{$d['target']}) — {$detail}");
+            $applied++;
+        }
+
+        if ($dry) {
+            DB::rollBack();
+            $this->warn('Dry run — rolled back, nothing was written.');
+        }
+
+        $this->newLine();
+        $this->info("{$applied} merged, {$skipped} already done.");
+
+        return self::SUCCESS;
+    }
+
+    private function nameMatches(User $user, string $expected): bool
+    {
+        return strcasecmp(trim($user->name), trim($expected)) === 0;
     }
 }
