@@ -122,6 +122,30 @@ const removeMember = (member) => {
     );
 };
 
+const separateMember = (member) => {
+    showConfirmDialog(
+        'Not the same person?',
+        '',
+        () => {
+            router.post(route('propoff.groups.members.separate', { group: props.group.id, user: member.id }), {}, {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    confirmDialog.value.show = false;
+                    showFlashMessages(page.props);
+                },
+                onError: () => {
+                    confirmDialog.value.show = false;
+                },
+            });
+        },
+        'warning',
+        'user-minus',
+        `Use this if ${member.name} confirmed someone else's entry when they joined.<br><br>`
+            + `Their answers in this group move to a separate person with the same name. `
+            + `Nothing changes for the original ${member.name} — they keep their earlier events and scores.`,
+    );
+};
+
 const addGuest = () => {
     if (!guestName.value.trim()) {
         return;
@@ -264,6 +288,15 @@ const formatDate = (dateString) => {
                                                 @click="demoteFromCaptain(member)"
                                             >
                                                 Demote
+                                            </Button>
+                                            <Button
+                                                v-if="!member.is_captain"
+                                                variant="ghost"
+                                                size="xs"
+                                                class="!text-warning"
+                                                @click="separateMember(member)"
+                                            >
+                                                Not them
                                             </Button>
                                             <Button
                                                 variant="ghost"

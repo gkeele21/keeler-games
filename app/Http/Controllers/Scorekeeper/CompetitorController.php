@@ -46,7 +46,7 @@ class CompetitorController extends Controller
     public function destroy(Request $request, ScoredGame $scoredGame, ScoredGameCompetitor $competitor)
     {
         $this->ensureEditable($request, $scoredGame);
-        abort_unless($competitor->scored_game_id === $scoredGame->id, 404);
+        abort_unless($competitor->game_id === $scoredGame->id, 404);
         abort_if(
             $scoredGame->competitors()->count() <= 2,
             422,
@@ -65,7 +65,7 @@ class CompetitorController extends Controller
     {
         $this->ensureEditable($request, $scoredGame);
         abort_unless($scoredGame->team_based, 422, 'This game is not team-based.');
-        abort_unless($competitor->scored_game_id === $scoredGame->id, 404);
+        abort_unless($competitor->game_id === $scoredGame->id, 404);
 
         $competitor->players()->attach($this->resolvePlayerId($request, $scoredGame));
 
@@ -78,7 +78,7 @@ class CompetitorController extends Controller
     public function removeMember(Request $request, ScoredGame $scoredGame, ScoredGameCompetitor $competitor, Player $player)
     {
         $this->ensureEditable($request, $scoredGame);
-        abort_unless($competitor->scored_game_id === $scoredGame->id, 404);
+        abort_unless($competitor->game_id === $scoredGame->id, 404);
         abort_if(
             $competitor->players()->count() <= 1,
             422,

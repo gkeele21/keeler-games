@@ -85,6 +85,7 @@ Route::prefix('propoff')->name('propoff.')->group(function () {
             Route::delete('groups/{group}/members/{user}', [MemberController::class, 'remove'])->name('groups.members.remove');
             Route::post('groups/{group}/regenerate-join-code', [MemberController::class, 'regenerateJoinCode'])->name('groups.members.regenerateJoinCode');
             Route::post('groups/{group}/members/add-guest', [MemberController::class, 'addGuest'])->name('groups.members.addGuest');
+            Route::post('groups/{group}/members/{user}/separate', [MemberController::class, 'separate'])->name('groups.members.separate');
 
             Route::get('groups/{group}/invitation', [InvitationController::class, 'show'])->name('groups.invitation');
             Route::post('groups/{group}/invitation/regenerate', [InvitationController::class, 'regenerate'])->name('groups.invitation.regenerate');

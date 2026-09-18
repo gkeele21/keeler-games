@@ -12,13 +12,18 @@ class ScoredGameCompetitor extends Model
 {
     use HasFactory;
 
-    protected $table = 'scored_game_competitors';
+    /**
+     * Scorekeeper competitors and trivia teams share the unified `competitors`
+     * table. The owning column is `game_id` for both kinds; the kind is implied
+     * by the game it belongs to, so no discriminator is needed here.
+     */
+    protected $table = 'competitors';
 
-    protected $fillable = ['scored_game_id', 'name', 'display_order'];
+    protected $fillable = ['game_id', 'name', 'display_order'];
 
     public function scoredGame(): BelongsTo
     {
-        return $this->belongsTo(ScoredGame::class);
+        return $this->belongsTo(ScoredGame::class, 'game_id');
     }
 
     /**

@@ -17,7 +17,7 @@ UPDATE questions q
 SET q.times_used = (
     SELECT COUNT(DISTINCT sq.game_session_id)
     FROM session_questions sq
-    JOIN game_sessions gs ON gs.id = sq.game_session_id
+    JOIN games gs ON gs.id = sq.game_session_id AND gs.kind = 'online'
     WHERE sq.question_id = q.id
       AND gs.status = 'completed'
 );

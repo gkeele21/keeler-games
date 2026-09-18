@@ -177,7 +177,7 @@ class PlayerController extends Controller
 
         // Create team for the player
         $team = Team::create([
-            'game_session_id' => $gameSession->id,
+            'game_id' => $gameSession->id,
             'name' => $playerName,
             'color' => $teamColors[$colorIndex],
             'display_order' => $order + 1,
@@ -274,13 +274,13 @@ class PlayerController extends Controller
         }
 
         $validated = $request->validate([
-            'team_id' => 'required|exists:teams,id',
+            'team_id' => 'required|exists:competitors,id',
         ]);
 
         $team = Team::find($validated['team_id']);
 
         // Verify team belongs to this game session
-        if ($team->game_session_id !== $gameSession->id) {
+        if ($team->game_id !== $gameSession->id) {
             abort(403, 'Invalid team.');
         }
 

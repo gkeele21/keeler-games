@@ -443,7 +443,11 @@ class GroupManagementTest extends TestCase
     public function captain_can_update_their_group()
     {
         $captain = User::factory()->create();
-        $event = Event::factory()->create();
+        // grading_source is only editable while the event is still draft/open
+        // (see GroupController::canChangeGradingSource). EventFactory randomises
+        // status across five values, so leaving it unpinned made this test fail
+        // whenever it landed on locked/in_progress/completed.
+        $event = Event::factory()->create(['status' => 'open']);
         $group = Group::factory()->create([
             'event_id' => $event->id,
             'name' => 'Old Name',

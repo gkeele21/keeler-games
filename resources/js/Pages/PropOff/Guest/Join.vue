@@ -26,8 +26,52 @@
                 </div>
             </div>
 
+            <!-- "Is this you?" — shown when the entered name already exists in
+                 this group. A name match is only ever a candidate: two real
+                 people share a name often enough that merging them silently
+                 would be worse than asking. -->
+            <div v-if="verifyEntry" class="bg-surface-elevated border border-border rounded-lg p-5 mb-6">
+                <h2 class="text-lg font-bold text-body mb-1">Is this you?</h2>
+                <p v-if="verifyEntry.from_previous_group" class="text-sm text-muted mb-4">
+                    Someone called "{{ verifyEntry.name }}" played with
+                    {{ verifyEntry.previous_group_name }} last time. Pick up where you
+                    left off and keep your history.
+                </p>
+                <p v-else class="text-sm text-muted mb-4">
+                    Someone called "{{ verifyEntry.name }}" has already joined this group.
+                </p>
+
+                <div class="bg-surface border border-border rounded-lg p-4 mb-5">
+                    <div class="font-semibold text-body">{{ verifyEntry.name }}</div>
+                    <div class="text-sm text-muted">
+                        <span v-if="verifyEntry.previous_event_name">
+                            {{ verifyEntry.previous_event_name }} &middot;
+                        </span>
+                        {{ verifyEntry.answered }} of {{ verifyEntry.total }} questions answered
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button
+                        type="button"
+                        :disabled="form.processing"
+                        class="flex-1 bg-primary text-white py-3 px-4 rounded-lg font-semibold hover:bg-primary-hover disabled:opacity-50 transition"
+                        @click="claimEntry"
+                    >
+                        Yes, that's me
+                    </button>
+                    <button
+                        type="button"
+                        class="flex-1 bg-surface-overlay text-body border border-border py-3 px-4 rounded-lg font-semibold hover:bg-surface transition"
+                        @click="useDifferentName"
+                    >
+                        No, I'm someone else
+                    </button>
+                </div>
+            </div>
+
             <!-- Registration Form -->
-            <form @submit.prevent="submit">
+            <form v-if="!verifyEntry" @submit.prevent="submit">
                 <div class="mb-4">
                     <label for="name" class="block text-sm font-medium text-body mb-2">
                         Enter Your Name <span class="text-danger">*</span>
@@ -121,19 +165,43 @@
 </template>
 
 <script setup>
-import { Head, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { TrophyIcon, UserGroupIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     invitation: Object,
 });
 
+const page = usePage();
+
+// Flashed by the controller when the entered name matches someone already in
+// the group; clearing it drops back to the plain form.
+const verifyEntry = computed(() => page.props.flash?.verifyEntry || null);
+
 const form = useForm({
     name: '',
     email: '',
     password: '',
     password_confirmation: '',
+    claim_user_id: null,
+    allow_duplicate_name: false,
 });
+
+const claimEntry = () => {
+    form.claim_user_id = verifyEntry.value?.user_id ?? null;
+    form.post(route('propoff.guest.register', props.invitation.token));
+};
+
+// They're a different person who happens to share the name. Drop back to the
+// form with the override set, so re-submitting doesn't just ask again.
+const useDifferentName = () => {
+    if (page.props.flash) {
+        page.props.flash.verifyEntry = null;
+    }
+    form.claim_user_id = null;
+    form.allow_duplicate_name = true;
+};
 
 const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {

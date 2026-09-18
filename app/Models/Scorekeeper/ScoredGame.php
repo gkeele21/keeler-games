@@ -12,6 +12,28 @@ class ScoredGame extends Model
 {
     use HasFactory;
 
+    /**
+     * Both game kinds share the unified `games` table; a global scope keeps
+     * this model to the scorekeeper rows and the creating hook stamps the
+     * discriminator, so callers keep treating it as its own table.
+     */
+    protected $table = 'games';
+
+    public const KIND = 'scorekeeper';
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::addGlobalScope('kind', function ($query) {
+            $query->where($query->getModel()->getTable() . '.kind', self::KIND);
+        });
+
+        static::creating(function ($game) {
+            $game->kind = self::KIND;
+        });
+    }
+
     protected $fillable = [
         'household_id',
         'game_template_id',
@@ -59,7 +81,7 @@ class ScoredGame extends Model
 
     public function competitors(): HasMany
     {
-        return $this->hasMany(ScoredGameCompetitor::class)->orderBy('display_order');
+        return $this->hasMany(ScoredGameCompetitor::class, 'game_id')->orderBy('display_order');
     }
 
     public function rounds(): HasMany

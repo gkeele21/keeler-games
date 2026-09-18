@@ -21,8 +21,11 @@ class LeaderboardFactory extends Factory
         $percentage = $possiblePoints > 0 ? round(($totalScore / $possiblePoints) * 100, 2) : 0;
 
         return [
-            'game_id' => \App\Models\Game::factory(),
-            'group_id' => fake()->optional()->randomElement(\App\Models\PropOff\Group::pluck('id')->toArray()), // NULL for global leaderboard
+            // Was 'game_id' => App\Models\Game::factory() — neither that model
+            // nor a game_id column has ever existed here. Broken since the
+            // PropOff merge and simply never called until now.
+            'event_id' => \App\Models\PropOff\Event::factory(),
+            'group_id' => null, // NULL for the event-wide leaderboard
             'user_id' => \App\Models\User::factory(),
             'rank' => fake()->numberBetween(1, 100),
             'total_score' => $totalScore,

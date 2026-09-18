@@ -4,12 +4,13 @@ namespace App\Http\Controllers\PropOff;
 
 use App\Http\Controllers\Controller;
 
+use App\Mail\GuestMagicLink;
 use App\Models\PropOff\EventInvitation;
 use App\Models\User;
+use App\Services\PropOff\ParticipantResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
 class GuestController extends Controller
@@ -48,13 +49,25 @@ class GuestController extends Controller
 
     /**
      * Register guest and auto-login.
+     *
+     * Looks for an existing person before creating one. This route carried 140
+     * of the Super Bowl LX joins while creating a fresh user every time, which
+     * is where most of the duplicate names came from — the same human
+     * re-registering after losing their magic link.
      */
-    public function register(Request $request, $token)
+    public function register(Request $request, ParticipantResolver $resolver)
     {
-        $request->validate([
+        $token = $request->route('token');
+
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'password' => 'nullable|string|min:8|confirmed',
+            // Set when the person has confirmed they are the matched entry.
+            'claim_user_id' => 'nullable|integer',
+            // Set when they've seen the match and said it isn't them — a real
+            // second person who happens to share the name.
+            'allow_duplicate_name' => 'nullable|boolean',
         ]);
 
         $invitation = EventInvitation::where('token', $token)
@@ -65,23 +78,85 @@ class GuestController extends Controller
             return back()->withErrors(['token' => 'This invitation is no longer valid.']);
         }
 
-        // Only generate guest token if no password (for magic link login)
-        $password = $request->password;
-        $guestToken = $password ? null : Str::random(32);
+        $group = $invitation->group;
+        $name = trim($validated['name']);
 
-        $user = User::create([
-            ...User::splitName($request->name),
-            'email' => $request->email,
-            'password' => $password ? Hash::make($password) : null,
-            'role' => 'guest',
-            'guest_token' => $guestToken,
-        ]);
+        // 1. They confirmed a matched entry on the "is this you?" step. The
+        //    match may have come from a previous year's group, so look the
+        //    person up across the lineage rather than only this group —
+        //    otherwise a returning player's claim silently falls through and
+        //    they get a duplicate anyway.
+        if (! empty($validated['claim_user_id'])) {
+            $claimed = $this->claimableUser((int) $validated['claim_user_id'], $group);
 
-        // Add user to group with proper pivot data
-        $invitation->group->users()->attach($user->id, [
-            'joined_at' => now(),
-            'is_captain' => false,
-        ]);
+            if ($claimed) {
+                return $this->completeJoin($claimed, $invitation, $resolver);
+            }
+        }
+
+        // 2. An email is an assertion of identity — reuse without asking.
+        $existing = $resolver->findByEmail($validated['email'] ?? null);
+        if ($existing) {
+            if ($existing->name !== $name) {
+                $existing->update(User::splitName($name));
+            }
+
+            return $this->completeJoin($existing, $invitation, $resolver);
+        }
+
+        // 3. A name match is only a candidate — two real people share a name
+        //    often enough that merging them silently would be wrong. Ask, unless
+        //    they've already told us it isn't them. Searches back through the
+        //    groups this one continues from, since a new year's group is empty
+        //    on the night and only the lineage can recognise a returning player.
+        $candidate = empty($validated['allow_duplicate_name'])
+            ? $resolver->findCandidateInLineage($name, $group)
+            : null;
+        if ($candidate) {
+            return back()->with([
+                'step'        => 'verify',
+                'verifyEntry' => $resolver->candidateSummary(
+                    $candidate['user'],
+                    $candidate['group'],
+                    $group,
+                ),
+            ]);
+        }
+
+        $user = $resolver->createGuest($name, $validated['email'] ?? null, $validated['password'] ?? null);
+        $guestToken = $user->guest_token;
+
+        return $this->completeJoin($user, $invitation, $resolver, $guestToken);
+    }
+
+    /**
+     * A claim is only honoured for someone actually present in this group or one
+     * it continues from — never an arbitrary user id posted from the client.
+     */
+    private function claimableUser(int $userId, \App\Models\PropOff\Group $group): ?User
+    {
+        foreach ($group->lineage() as $ancestor) {
+            $user = $ancestor->users()->where('users.id', $userId)->first();
+
+            if ($user) {
+                return $user;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Shared tail of every successful join: group membership, invitation usage,
+     * login, and the magic-link hand-off for password-less guests.
+     */
+    private function completeJoin(
+        User $user,
+        EventInvitation $invitation,
+        ParticipantResolver $resolver,
+        ?string $guestToken = null,
+    ) {
+        $resolver->attachTo($user, $invitation->group);
 
         // Increment invitation usage
         $invitation->incrementUsage();
@@ -98,11 +173,14 @@ class GuestController extends Controller
             session()->flash('magic_link', $magicLink);
             session()->flash('show_magic_link', true);
 
-            // Send email with magic link if email provided
-            // TODO: Uncomment when ready to send emails
-            // if ($request->email) {
-            //     Mail::to($request->email)->send(new GuestWelcome($user, $invitation->event, $magicLink));
-            // }
+            // Email the link so it survives the party — the on-screen copy is
+            // gone the moment the phone is locked, which is exactly how the
+            // Super Bowl LX guests lost theirs and re-registered.
+            if ($user->email) {
+                Mail::to($user->email)->send(
+                    new GuestMagicLink($user, $invitation->event, $magicLink),
+                );
+            }
         }
 
         return \Inertia\Inertia::location(route('propoff.play.hub', ['code' => $invitation->group->code]));

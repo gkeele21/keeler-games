@@ -70,7 +70,7 @@ class ScoredGameTest extends TestCase
                 ->where('standings.0.name', 'Alice'));
 
         $this->actingAs($user)->post(route('scorekeeper.games.complete', $game))->assertRedirect();
-        $this->assertDatabaseHas('scored_games', ['id' => $game->id, 'is_complete' => true]);
+        $this->assertDatabaseHas('games', ['id' => $game->id, 'is_complete' => true]);
     }
 
     public function test_multi_field_total_sums_only_counting_fields(): void
@@ -206,9 +206,9 @@ class ScoredGameTest extends TestCase
             ->delete(route('scorekeeper.games.destroy', $game))
             ->assertRedirect(route('scorekeeper.households.games.index', $household->id));
 
-        $this->assertDatabaseMissing('scored_games', ['id' => $game->id]);
+        $this->assertDatabaseMissing('games', ['id' => $game->id]);
         $this->assertDatabaseMissing('rounds', ['id' => $round->id]);
-        $this->assertDatabaseMissing('scored_game_competitors', ['scored_game_id' => $game->id]);
+        $this->assertDatabaseMissing('competitors', ['game_id' => $game->id]);
     }
 
     public function test_scorecard_shows_first_names_disambiguated_by_last_initials(): void

@@ -137,9 +137,12 @@ class GroupController extends Controller
             \Auth::login($user);
         }
 
-        // Create the group
+        // Create the group, continuing this captain's last one if they have
+        // run a group before. See resolvePreviousGroup() for why this is
+        // automatic rather than a form field.
         $group = Group::create([
             'event_id' => $event->id,
+            'previous_group_id' => $this->resolvePreviousGroup($user, $event)?->id,
             'name' => $request->name,
             'description' => $request->description,
             'grading_source' => $request->grading_source,
@@ -202,5 +205,27 @@ class GroupController extends Controller
 
         return redirect()->route('propoff.groups.index')
             ->with('success', 'Group created successfully! You are now a captain of this group.');
+    }
+
+    /**
+     * The group this captain most recently ran, for an earlier event — their
+     * previous year's party.
+     *
+     * Automatic rather than a form field: the create form is rendered before we
+     * know who the captain is (guest captains type their name on it), so there
+     * is nobody to show a picker for. Getting it wrong is cheap — the link only
+     * widens the "is this you?" search, so the worst case is being offered a
+     * name from a group you were genuinely in, which you can decline.
+     */
+    private function resolvePreviousGroup(User $user, Event $event): ?Group
+    {
+        return Group::query()
+            ->whereHas('users', fn ($q) => $q->where('users.id', $user->id))
+            ->whereHas('event', fn ($q) => $q->where('event_date', '<', $event->event_date))
+            ->where('event_id', '!=', $event->id)
+            ->join('propoff_events', 'propoff_events.id', '=', 'propoff_groups.event_id')
+            ->orderByDesc('propoff_events.event_date')
+            ->select('propoff_groups.*')
+            ->first();
     }
 }

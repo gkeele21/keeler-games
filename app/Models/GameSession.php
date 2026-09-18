@@ -15,6 +15,15 @@ class GameSession extends Model
 {
     use HasFactory;
 
+    /**
+     * Both game kinds share the unified `games` table; a global scope keeps
+     * this model to the online rows and the creating hook stamps the
+     * discriminator, so callers keep treating it as its own table.
+     */
+    protected $table = 'games';
+
+    public const KIND = 'online';
+
     protected $fillable = [
         'game_type_id',
         'host_user_id',
@@ -36,7 +45,13 @@ class GameSession extends Model
     {
         parent::boot();
 
+        static::addGlobalScope('kind', function ($query) {
+            $query->where($query->getModel()->getTable() . '.kind', self::KIND);
+        });
+
         static::creating(function ($session) {
+            $session->kind = self::KIND;
+
             if (empty($session->invite_code)) {
                 $session->invite_code = GameCode::generate();
             }
@@ -78,7 +93,7 @@ class GameSession extends Model
 
     public function teams(): HasMany
     {
-        return $this->hasMany(Team::class)->orderBy('display_order');
+        return $this->hasMany(Team::class, 'game_id')->orderBy('display_order');
     }
 
     public function sessionCards(): HasMany

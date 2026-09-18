@@ -16,8 +16,8 @@ class Group extends Model
     protected $table = 'propoff_groups';
 
     protected $fillable = [
-        'event_id', 'name', 'code', 'grading_source', 'entry_cutoff',
-        'description', 'is_public', 'created_by',
+        'event_id', 'previous_group_id', 'name', 'code', 'grading_source',
+        'entry_cutoff', 'description', 'is_public', 'created_by',
     ];
 
     protected $appends = ['is_locked'];
@@ -38,6 +38,40 @@ class Group extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /** The group this one continues from — last year's party. */
+    public function previousGroup(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'previous_group_id');
+    }
+
+    /** Groups that continue from this one. */
+    public function nextGroups(): HasMany
+    {
+        return $this->hasMany(self::class, 'previous_group_id');
+    }
+
+    /**
+     * This group and every ancestor, oldest last. Depth-capped so a bad
+     * previous_group_id cycle can never spin — a real chain is one link a year.
+     */
+    public function lineage(int $maxDepth = 10): array
+    {
+        $chain = [$this];
+        $seen = [$this->id => true];
+        $group = $this;
+
+        while (count($chain) < $maxDepth && $group->previous_group_id) {
+            $group = $group->previousGroup;
+            if (! $group || isset($seen[$group->id])) {
+                break;
+            }
+            $seen[$group->id] = true;
+            $chain[] = $group;
+        }
+
+        return $chain;
     }
 
     public function users(): BelongsToMany

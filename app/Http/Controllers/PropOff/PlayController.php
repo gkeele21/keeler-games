@@ -12,6 +12,7 @@ use App\Models\PropOff\Leaderboard;
 use App\Models\User;
 use App\Models\PropOff\UserAnswer;
 use App\Services\PropOff\EntryService;
+use App\Services\PropOff\ParticipantResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -147,7 +148,7 @@ class PlayController extends Controller
     /**
      * Process the join request.
      */
-    public function processJoin(Request $request, string $code)
+    public function processJoin(Request $request, string $code, ParticipantResolver $resolver)
     {
         $group = Group::where('code', $code)->firstOrFail();
 
@@ -162,40 +163,31 @@ class PlayController extends Controller
         $email = $validated['email'] ?? null;
         $password = $validated['password'] ?? null;
 
-        // Check for exact name match in this group
-        $exactMatch = $group->users()
-            ->where('first_name', User::splitName($name)['first_name'])
-            ->where('last_name', User::splitName($name)['last_name'])
-            ->first();
+        // Name match across this group AND the groups it continues from, so a
+        // player returning for a new year's event is recognised rather than
+        // registered again. Shares its implementation with the invitation flow
+        // in GuestController — this used to be a second, narrower copy.
+        $match = $resolver->findCandidateInLineage($name, $group);
+        $exactMatch = $match['user'] ?? null;
 
         // If verified, link to existing user immediately
         if ($exactMatch && ($validated['verified'] ?? false)) {
+            $resolver->attachTo($exactMatch, $group);
+
             return $this->linkGuestAndProceed($exactMatch, $group, $code);
         }
 
         // If exact name match and not verified, show verification
         if ($exactMatch) {
-            $entry = Entry::where('user_id', $exactMatch->id)
-                ->where('group_id', $group->id)
-                ->first();
-
-            $answeredCount = $entry ? $entry->userAnswers()->count() : 0;
-            $totalQuestions = $group->groupQuestions()->where('is_active', true)->count();
-
             return back()->with([
                 'step' => 'verify',
-                'verifyEntry' => [
-                    'name' => $exactMatch->name,
-                    'answered' => $answeredCount,
-                    'total' => $totalQuestions,
-                    'user_id' => $exactMatch->id,
-                ],
+                'verifyEntry' => $resolver->candidateSummary($exactMatch, $match['group'], $group),
             ]);
         }
 
         // Check if email already exists (returning user with different name)
         if ($email) {
-            $existingUser = User::where('email', $email)->first();
+            $existingUser = $resolver->findByEmail($email);
 
             if ($existingUser) {
                 // Update name if different and add to group
@@ -203,13 +195,7 @@ class PlayController extends Controller
                     $existingUser->update(User::splitName($name));
                 }
 
-                // Add to group if not already a member
-                if (!$group->users()->where('user_id', $existingUser->id)->exists()) {
-                    $group->users()->attach($existingUser->id, [
-                        'joined_at' => now(),
-                        'is_captain' => false,
-                    ]);
-                }
+                $resolver->attachTo($existingUser, $group);
 
                 Auth::login($existingUser);
 
@@ -687,22 +673,10 @@ class PlayController extends Controller
      */
     protected function createGuestAndJoin(string $name, ?string $email, ?string $password, Group $group, string $code)
     {
-        // Only generate guest token if no password (for magic link login)
-        $guestToken = $password ? null : Str::random(32);
+        $user = app(ParticipantResolver::class)->createGuest($name, $email, $password);
+        $guestToken = $user->guest_token;
 
-        $user = User::create([
-            ...User::splitName($name),
-            'email' => $email,
-            'password' => $password ? Hash::make($password) : null,
-            'role' => 'guest',
-            'guest_token' => $guestToken,
-        ]);
-
-        // Add user to group
-        $group->users()->attach($user->id, [
-            'joined_at' => now(),
-            'is_captain' => false,
-        ]);
+        app(ParticipantResolver::class)->attachTo($user, $group);
 
         // Login the user
         Auth::login($user);

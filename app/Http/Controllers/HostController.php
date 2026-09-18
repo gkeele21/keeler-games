@@ -85,7 +85,7 @@ class HostController extends Controller
         // player_id => [question_id, ...] seen across completed games they attended
         // (excluding this session, which isn't played yet).
         $seenByPlayer = \DB::table('game_session_players as gsp')
-            ->join('game_sessions as gs', 'gs.id', '=', 'gsp.game_session_id')
+            ->join('games as gs', 'gs.id', '=', 'gsp.game_session_id')
             ->join('session_questions as sq', 'sq.game_session_id', '=', 'gsp.game_session_id')
             ->where('gs.status', 'completed')
             ->where('gs.id', '!=', $gameSession->id)
@@ -605,7 +605,7 @@ class HostController extends Controller
     {
         $validated = $request->validate([
             'answer_id' => 'required|exists:answers,id',
-            'team_id' => 'nullable|exists:teams,id',
+            'team_id' => 'nullable|exists:competitors,id',
             // When false, reveal the answer on the board but award no points and
             // attach it to no team — used to show answers that were never guessed
             // once a round is over.
@@ -840,7 +840,7 @@ class HostController extends Controller
     public function setControllingTeam(Request $request, GameSession $gameSession)
     {
         $validated = $request->validate([
-            'team_id' => 'required|exists:teams,id',
+            'team_id' => 'required|exists:competitors,id',
         ]);
 
         $state = $gameSession->gameState;
@@ -871,7 +871,7 @@ class HostController extends Controller
     public function awardBonus(Request $request, GameSession $gameSession)
     {
         $validated = $request->validate([
-            'team_id' => 'required|exists:teams,id',
+            'team_id' => 'required|exists:competitors,id',
         ]);
 
         $state = $gameSession->gameState;
@@ -938,7 +938,7 @@ class HostController extends Controller
     {
         $validated = $request->validate([
             'team_ids' => 'required|array|min:1',
-            'team_ids.*' => 'exists:teams,id',
+            'team_ids.*' => 'exists:competitors,id',
         ]);
 
         $state = $gameSession->gameState;
@@ -1087,9 +1087,9 @@ class HostController extends Controller
 
         // Accept either a single team_id or an array of team_ids
         $validated = $request->validate([
-            'team_id' => 'required_without:team_ids|exists:teams,id',
+            'team_id' => 'required_without:team_ids|exists:competitors,id',
             'team_ids' => 'required_without:team_id|array|min:1',
-            'team_ids.*' => 'exists:teams,id',
+            'team_ids.*' => 'exists:competitors,id',
         ]);
 
         // Load the game state and current question
@@ -1227,7 +1227,7 @@ class HostController extends Controller
         }
 
         // Verify the team belongs to this game session
-        if ($team->game_session_id !== $gameSession->id) {
+        if ($team->game_id !== $gameSession->id) {
             return response()->json(['error' => 'Team does not belong to this game session'], 400);
         }
 
@@ -1644,7 +1644,7 @@ class HostController extends Controller
         }
 
         $validated = $request->validate([
-            'team_id' => 'required|exists:teams,id',
+            'team_id' => 'required|exists:competitors,id',
         ]);
 
         $state = $gameSession->gameState;
@@ -2025,7 +2025,7 @@ class HostController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate(['team_id' => 'required|integer|exists:teams,id']);
+        $validated = $request->validate(['team_id' => 'required|integer|exists:competitors,id']);
         $state = $gameSession->gameState;
         $currentQuestion = $state?->currentQuestion;
         if (!$currentQuestion) {

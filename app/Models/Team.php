@@ -11,8 +11,15 @@ class Team extends Model
 {
     use HasFactory;
 
+    /**
+     * Teams and Scorekeeper competitors share the unified `competitors` table.
+     * The owning column is `game_id` for both kinds; a team's kind is implied
+     * by the game it belongs to, so no discriminator is needed here.
+     */
+    protected $table = 'competitors';
+
     protected $fillable = [
-        'game_session_id',
+        'game_id',
         'name',
         'color',
         'display_order',
@@ -26,7 +33,7 @@ class Team extends Model
 
     public function gameSession(): BelongsTo
     {
-        return $this->belongsTo(GameSession::class);
+        return $this->belongsTo(GameSession::class, 'game_id');
     }
 
     public function members(): HasMany
