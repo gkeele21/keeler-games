@@ -4,20 +4,55 @@
     "target": 109,
     "source_name": "Anthony Tarsi",
     "target_name": "Anthony Tarsi",
-    "note": "UNCONFIRMED — full-name duplicate, both in group 12, neither has an entry."
+    "note": "Applied. Full-name duplicate, both in group 12; neither had an entry."
   },
   {
     "source": 35,
     "target": 97,
     "source_name": "Big Steve",
     "target_name": "Big Steve",
-    "note": "UNCONFIRMED — full-name duplicate; #97 has the entry, #35 has none."
+    "note": "Applied. Full-name duplicate; #97 held the entry, #35 had none."
   },
   {
     "source": 130,
     "target": 94,
     "source_name": "Lucy Marek",
     "target_name": "Lucy Marek",
-    "note": "UNCONFIRMED — full-name duplicate; #94 has the entry, #130 has none."
+    "note": "Applied. Full-name duplicate; #94 held the entry, #130 had none."
+  },
+  {
+    "source": 70,
+    "target": 140,
+    "source_name": "Daniela",
+    "target_name": "daniela varney",
+    "note": "Applied locally by hand, recorded here so production replays it. Guest joined by link; the account is the same person."
+  },
+  {
+    "source": 18,
+    "target": 139,
+    "source_name": "Deegen",
+    "target_name": "Deegen Varney",
+    "note": "Confirmed by Grant. Guest joined by link; the account is the same person."
+  },
+  {
+    "source": 123,
+    "target": 142,
+    "source_name": "Krista",
+    "target_name": "Krista Keele",
+    "note": "Confirmed by Grant. Guest joined by link; the account is the same person."
+  },
+  {
+    "source": 112,
+    "target": 141,
+    "source_name": "Tara",
+    "target_name": "Tara Busenbark",
+    "note": "Confirmed by Grant. There is only one Tara; this guest row holds her entry."
+  },
+  {
+    "source": 131,
+    "target": 141,
+    "source_name": "Tara",
+    "target_name": "Tara Busenbark",
+    "note": "Confirmed by Grant. Second guest row for the same Tara, with no entry of its own."
   }
 ]
