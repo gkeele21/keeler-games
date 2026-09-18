@@ -2025,7 +2025,7 @@ class HostController extends Controller
             abort(403);
         }
 
-        $validated = $request->validate(['team_id' => 'required|integer|exists:teams,id']);
+        $validated = $request->validate(['team_id' => 'required|integer|exists:competitors,id']);
         $state = $gameSession->gameState;
         $currentQuestion = $state?->currentQuestion;
         if (!$currentQuestion) {
