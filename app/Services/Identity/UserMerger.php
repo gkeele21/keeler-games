@@ -92,9 +92,11 @@ class UserMerger
             DB::table('user_friends')->where('user_id', $source->id)->orWhere('friend_id', $source->id)->delete();
             DB::table('user_friends')->whereColumn('user_id', 'friend_id')->delete();
 
+            $adopted = $this->adoptIdentifyingDetails($source, $target);
+
             $source->delete();
 
-            return array_filter($moved, fn ($n) => $n > 0);
+            return array_filter($moved + $adopted, fn ($n) => $n > 0);
         });
     }
 
@@ -189,5 +191,47 @@ class UserMerger
             $table => $moved,
             $table . ' (' . ($drop ? 'already covered, removed' : 'already covered, unlinked') . ')' => $discarded,
         ];
+    }
+
+    /**
+     * Carry across identifying details the survivor lacks.
+     *
+     * Which row keeps the data is decided by which one actually played, and
+     * that is often not the row with the better name. "Nick Williams" holds a
+     * surname and an email but no entry, while a bare "Nick" holds the entry —
+     * merging into the latter would keep the answers and silently discard both
+     * ways of recognising him.
+     *
+     * Only ever fills blanks. The survivor's own details always win, so this
+     * cannot overwrite a known-good name with a worse one.
+     */
+    private function adoptIdentifyingDetails(User $source, User $target): array
+    {
+        $adopted = [];
+        $fill = [];
+
+        // Only a surname with letters in it. People disambiguate themselves at
+        // the join screen by typing "Megan 2", and splitName puts that "2" in
+        // last_name — adopting it would spread the junk rather than the name.
+        $sourceLast = trim((string) $source->last_name);
+
+        if (trim((string) $target->last_name) === '' && preg_match('/\p{L}/u', $sourceLast)) {
+            $fill['last_name'] = $sourceLast;
+            $adopted['adopted surname'] = 1;
+        }
+
+        // email is unique, so this has to happen while the source still holds
+        // it — the row is deleted immediately after.
+        if (! $target->email && $source->email) {
+            DB::table('users')->where('id', $source->id)->update(['email' => null]);
+            $fill['email'] = $source->email;
+            $adopted['adopted email'] = 1;
+        }
+
+        if ($fill) {
+            DB::table('users')->where('id', $target->id)->update($fill);
+        }
+
+        return $adopted;
     }
 }
