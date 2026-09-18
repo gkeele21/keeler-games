@@ -12,7 +12,21 @@ class EventInvitation extends Model
 {
     use HasFactory;
 
-    protected $table = 'propoff_event_invitations';
+    /**
+     * Both invitation kinds share the unified `propoff_invitations` table. An
+     * event link carries a group — it admits the holder to that specific group.
+     * The global scope keeps this model to those rows.
+     */
+    protected $table = 'propoff_invitations';
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::addGlobalScope('groupLink', function ($query) {
+            $query->whereNotNull($query->getModel()->getTable() . '.group_id');
+        });
+    }
 
     protected $fillable = [
         'event_id', 'group_id', 'token', 'max_uses', 'times_used',

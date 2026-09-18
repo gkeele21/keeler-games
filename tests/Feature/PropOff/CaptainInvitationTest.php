@@ -400,7 +400,7 @@ class CaptainInvitationTest extends TestCase
         $group = Group::where('name', 'Test Group')->first();
 
         // EventInvitation should be auto-created
-        $this->assertDatabaseHas('propoff_event_invitations', [
+        $this->assertDatabaseHas('propoff_invitations', [
             'event_id' => $event->id,
             'group_id' => $group->id,
             'is_active' => true,
