@@ -14,7 +14,9 @@ class AuthenticationTest extends TestCase
     {
         $response = $this->get('/login');
 
-        $response->assertStatus(200);
+        // There is no standalone login page: auth lives in the landing-page
+        // slide drawer, so /login sends you there with it open.
+        $response->assertRedirect('/?auth=login');
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void

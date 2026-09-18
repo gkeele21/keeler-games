@@ -163,4 +163,58 @@ class UserMergeTest extends TestCase
         $this->assertSame($real->id, $group->fresh()->created_by);
         $this->assertNull(User::find($guest->id));
     }
+
+    public function test_the_survivor_adopts_a_surname_it_lacks(): void
+    {
+        // The row that played is often not the row with the better name.
+        $named = $this->guest('Nick', 'Williams');
+        $played = $this->guest('Nick');
+        $played->update(['last_name' => '']);
+
+        app(UserMerger::class)->merge($named, $played);
+
+        $this->assertSame('Williams', $played->fresh()->last_name);
+    }
+
+    public function test_the_survivor_adopts_an_email_it_lacks(): void
+    {
+        $withEmail = $this->guest('Nick', 'Williams');
+        $withEmail->update(['email' => 'nick@example.com']);
+        // Real PropOff guests have no email — UserFactory always assigns one,
+        // so it has to be cleared for the fixture to match the data.
+        $played = $this->guest('Nick');
+        $played->update(['email' => null]);
+
+        app(UserMerger::class)->merge($withEmail, $played);
+
+        $this->assertSame('nick@example.com', $played->fresh()->email);
+    }
+
+    public function test_a_numeric_disambiguator_is_not_adopted_as_a_surname(): void
+    {
+        // People type "Megan 2" at the join screen to tell themselves apart,
+        // and splitName files that "2" as a surname. Spreading it to the
+        // survivor would make the data worse, not better.
+        $source = $this->guest('Megan', '2');
+        $target = $this->guest('Megan');
+        $target->update(['last_name' => '']);
+
+        app(UserMerger::class)->merge($source, $target);
+
+        $this->assertSame('', $target->fresh()->last_name);
+    }
+
+    public function test_it_never_overwrites_details_the_survivor_already_has(): void
+    {
+        $source = $this->guest('Nick', 'Williams');
+        $source->update(['email' => 'guest@example.com']);
+        $target = $this->account('Nick', 'Keele');
+        $target->update(['email' => 'real@example.com']);
+
+        app(UserMerger::class)->merge($source, $target);
+
+        $fresh = $target->fresh();
+        $this->assertSame('Keele', $fresh->last_name);
+        $this->assertSame('real@example.com', $fresh->email);
+    }
 }

@@ -539,7 +539,9 @@ class GroupManagementTest extends TestCase
     {
         $response = $this->get(route('propoff.admin.groups.index'));
 
-        $response->assertRedirect(route('login'));
+        // Unauthenticated visitors land on the landing page with the auth
+        // drawer open; route('login') only forwards there.
+        $response->assertRedirect('/?auth=login');
     }
 
     /** @test */

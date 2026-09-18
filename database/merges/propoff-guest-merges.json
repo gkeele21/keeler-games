@@ -54,5 +54,117 @@
     "source_name": "Tara",
     "target_name": "Tara Busenbark",
     "note": "Confirmed by Grant. Second guest row for the same Tara, with no entry of its own."
+  },
+  {
+    "source": 138,
+    "target": 107,
+    "source_name": "Ann",
+    "target_name": "Ann",
+    "note": "Confirmed by Grant. Both in group 11; the second registration never played."
+  },
+  {
+    "source": 135,
+    "target": 59,
+    "source_name": "CornDog",
+    "target_name": "CornDog",
+    "note": "Confirmed by Grant. Both in group 5; the second registration never played."
+  },
+  {
+    "source": 136,
+    "target": 67,
+    "source_name": "Hazel",
+    "target_name": "Hazel",
+    "note": "Confirmed by Grant. Both in group 5; the second registration never played."
+  },
+  {
+    "source": 133,
+    "target": 28,
+    "source_name": "Holly",
+    "target_name": "Holly",
+    "note": "Confirmed by Grant. Both in group 2; the second registration never played."
+  },
+  {
+    "source": 137,
+    "target": 25,
+    "source_name": "Mark",
+    "target_name": "Mark",
+    "note": "Confirmed by Grant. Both in group 9; the second registration never played."
+  },
+  {
+    "source": 132,
+    "target": 24,
+    "source_name": "Tiffany",
+    "target_name": "Tiffany",
+    "note": "Confirmed by Grant. Both in group 9; the second registration never played."
+  },
+  {
+    "source": 23,
+    "target": 29,
+    "source_name": "Nick Williams",
+    "target_name": "Nick",
+    "note": "Confirmed by Grant. Both in group 9; the second registration never played. The survivor adopts the surname and email from this row."
+  },
+  {
+    "source": 108,
+    "target": 27,
+    "source_name": "Ben",
+    "target_name": "Ben",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 34,
+    "target": 53,
+    "source_name": "Chloe",
+    "target_name": "Chloe",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 73,
+    "target": 74,
+    "source_name": "Gracie",
+    "target_name": "Gracie",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 10,
+    "target": 14,
+    "source_name": "Megan",
+    "target_name": "Megan",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 12,
+    "target": 14,
+    "source_name": "Megan",
+    "target_name": "Megan",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 11,
+    "target": 14,
+    "source_name": "Megan 2",
+    "target_name": "Megan",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 13,
+    "target": 66,
+    "source_name": "Pat",
+    "target_name": "Pat",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 111,
+    "target": 104,
+    "source_name": "Spencer",
+    "target_name": "Spencer",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 20,
+    "target": 7,
+    "source_name": "barry",
+    "target_name": "Barry",
+    "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
   }
 ]

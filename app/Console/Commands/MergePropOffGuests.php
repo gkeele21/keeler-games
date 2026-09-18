@@ -100,81 +100,120 @@ class MergePropOffGuests extends Command
     }
 
     /**
-     * Guests whose name matches someone else. Ordered so the strongest signal —
-     * a full name with a surname — comes first; a bare first name is a weak hint
-     * and is labelled as such.
+     * Name clusters among guests, sorted by how safe each pairing looks.
+     *
+     * A shared name alone means nothing — the live data has two different
+     * people called Hazel at two different parties. What separates a duplicate
+     * from a namesake is where they played:
+     *
+     *   same group, one with no entry   the same person registered twice
+     *   no group at all                 an abandoned registration, nothing to lose
+     *   different groups, both played   two people; leave them alone
      */
     private function listCandidates(): int
     {
         $guests = User::where('role', 'guest')->get();
-        $others = User::all()->keyBy('id');
+        $accounts = User::where('role', '!=', 'guest')->get();
+
+        $groupsOf = fn (User $u) => DB::table('propoff_group_user')->where('user_id', $u->id)->pluck('group_id')->all();
+        $entriesOf = fn (User $u) => DB::table('propoff_entries')->where('user_id', $u->id)->count();
+
+        $clusters = $guests->groupBy(fn ($u) => mb_strtolower(trim($u->first_name)))->filter(fn ($c, $k) => $k !== '');
         $rows = [];
 
-        foreach ($guests as $guest) {
-            $first = trim($guest->first_name);
-            $last = trim($guest->last_name);
+        foreach ($clusters as $name => $members) {
+            // A guest sharing a first name with a real account is the other
+            // shape worth surfacing: the same person who later signed up.
+            foreach ($accounts as $account) {
+                if (mb_strtolower(trim($account->first_name)) !== $name) {
+                    continue;
+                }
+                foreach ($members as $guest) {
+                    $rows[] = [$guest->id, $guest->name, $account->id, $account->name,
+                        'guest matches an account', 'likely'];
+                }
+            }
 
-            if ($first === '') {
+            if ($members->count() < 2) {
                 continue;
             }
 
-            foreach ($others as $other) {
-                if ($other->id === $guest->id) {
-                    continue;
-                }
-                if (strcasecmp(trim($other->first_name), $first) !== 0) {
-                    continue;
-                }
+            // Rows that joined nothing and answered nothing hold no data at
+            // all, so pairing them off against each other is noise — four empty
+            // "Megan" rows would otherwise produce six identical suggestions.
+            // Point them all at whichever sibling actually played.
+            $empty = $members->filter(fn ($u) => ! $groupsOf($u) && $entriesOf($u) === 0);
+            $active = $members->reject(fn ($u) => $empty->contains('id', $u->id));
 
-                $otherLast = trim($other->last_name);
-                $strong = $last !== '' && strcasecmp($otherLast, $last) === 0;
+            if ($empty->isNotEmpty()) {
+                $keeper = $active->sortByDesc(fn ($u) => $entriesOf($u))->first() ?? $empty->sortBy('id')->first();
 
-                // A guest matching another guest is only worth showing when the
-                // surname agrees; otherwise every "Ben" pairs with every "Ben".
-                if (! $strong && $other->role === 'guest') {
-                    continue;
-                }
-
-                $guestEntries = DB::table('propoff_entries')->where('user_id', $guest->id)->count();
-
-                // A guest-to-guest pair is symmetric and would otherwise be
-                // listed twice. Show it once, pointing the guest with less to
-                // lose at the one with more — merging away the emptier record
-                // is the cheaper direction if the call turns out wrong.
-                if ($other->role === 'guest') {
-                    $otherEntries = DB::table('propoff_entries')->where('user_id', $other->id)->count();
-                    if ([$guestEntries, $guest->id] > [$otherEntries, $other->id]) {
+                foreach ($empty as $u) {
+                    if ($u->id === $keeper->id) {
                         continue;
                     }
+                    $rows[] = [$u->id, $u->name, $keeper->id, $keeper->name,
+                        'joined nothing and never played — holds no data', 'likely'];
                 }
 
-                $rows[] = [
-                    $guest->id,
-                    $guest->name,
-                    $other->id,
-                    $other->name,
-                    $other->role,
-                    $strong ? 'full name' : 'first name only',
-                    $guestEntries,
-                ];
+                $members = $active;
+                if ($members->count() < 2) {
+                    continue;
+                }
+            }
+
+            foreach ($members as $a) {
+                foreach ($members as $b) {
+                    if ($a->id >= $b->id) {
+                        continue;
+                    }
+
+                    [$ga, $gb] = [$groupsOf($a), $groupsOf($b)];
+                    [$ea, $eb] = [$entriesOf($a), $entriesOf($b)];
+                    $shared = array_intersect($ga, $gb);
+
+                    // Point the emptier row at the fuller one — if the call is
+                    // wrong, that is the cheaper direction to have taken.
+                    [$src, $dst] = ($ea <=> $eb) <= 0 ? [$a, $b] : [$b, $a];
+                    [$srcGroups, $srcEntries] = $src->id === $a->id ? [$ga, $ea] : [$gb, $eb];
+
+                    if ($shared && min($ea, $eb) === 0) {
+                        $rows[] = [$src->id, $src->name, $dst->id, $dst->name,
+                            'same group (' . implode(',', $shared) . '), one never played', 'likely'];
+                        continue;
+                    }
+
+                    if (! $srcGroups && $srcEntries === 0) {
+                        $rows[] = [$src->id, $src->name, $dst->id, $dst->name,
+                            'abandoned registration — joined no group', 'likely'];
+                        continue;
+                    }
+
+                    if ($ea > 0 && $eb > 0 && ! $shared) {
+                        $rows[] = [$src->id, $src->name, $dst->id, $dst->name,
+                            'different groups, both played — probably two people', 'unlikely'];
+                        continue;
+                    }
+
+                    $rows[] = [$src->id, $src->name, $dst->id, $dst->name, 'shared name only', 'unclear'];
+                }
             }
         }
 
         if (! $rows) {
-            $this->info('No guest credentials look like anyone already known.');
+            $this->info('No guest credentials look mergeable.');
 
             return self::SUCCESS;
         }
 
-        usort($rows, fn ($a, $b) => [$b[5], $a[1]] <=> [$a[5], $b[1]]);
+        $rank = ['likely' => 0, 'unclear' => 1, 'unlikely' => 2];
+        usort($rows, fn ($a, $b) => [$rank[$a[5]], $a[1]] <=> [$rank[$b[5]], $b[1]]);
 
-        $this->table(
-            ['guest #', 'guest', 'match #', 'match', 'role', 'confidence', 'entries'],
-            $rows,
-        );
+        $this->table(['guest #', 'guest', 'into #', 'into', 'why', 'verdict'], $rows);
         $this->newLine();
-        $this->line('These are <fg=yellow>suggestions only</> — confirm each against people you know.');
-        $this->line('Then: <fg=green>php artisan propoff:merge-guests --merge=GUEST:MATCH --dry-run</>');
+        $this->line('<fg=yellow>Suggestions only.</> "unlikely" rows are shown so you can see what was');
+        $this->line('considered and rejected — merging one would fuse two different people.');
+        $this->line('Then: <fg=green>php artisan propoff:merge-guests --merge=GUEST:INTO --dry-run</>');
 
         return self::SUCCESS;
     }

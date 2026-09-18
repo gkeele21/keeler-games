@@ -13,7 +13,9 @@ class RegistrationTest extends TestCase
     {
         $response = $this->get('/register');
 
-        $response->assertStatus(200);
+        // Registration lives in the landing-page slide drawer, not on a page
+        // of its own.
+        $response->assertRedirect('/?auth=register');
     }
 
     public function test_new_users_can_register(): void
