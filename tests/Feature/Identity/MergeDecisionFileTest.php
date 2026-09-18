@@ -108,4 +108,38 @@ class MergeDecisionFileTest extends TestCase
             $this->assertNotSame($d['source'], $d['target'], "entry {$i} merges someone into themselves");
         }
     }
+
+    public function test_merging_two_unrelated_names_is_refused(): void
+    {
+        $a = User::factory()->create(['first_name' => 'Daniela', 'last_name' => '', 'role' => 'guest']);
+        $b = User::factory()->create(['first_name' => 'Brinda', 'last_name' => '', 'role' => 'guest']);
+
+        // A mistyped id is the one mistake no other guard catches — the ids are
+        // valid, so everything else passes.
+        $this->artisan("propoff:merge-guests --merge={$a->id}:{$b->id}")->assertFailed();
+
+        $this->assertNotNull(User::find($a->id));
+    }
+
+    public function test_force_allows_a_deliberate_mismatch(): void
+    {
+        $a = User::factory()->create(['first_name' => 'Daniela', 'last_name' => '', 'role' => 'guest']);
+        $b = User::factory()->create(['first_name' => 'Brinda', 'last_name' => '', 'role' => 'guest']);
+
+        $this->artisan("propoff:merge-guests --merge={$a->id}:{$b->id} --force")->assertSuccessful();
+
+        $this->assertNull(User::find($a->id));
+    }
+
+    public function test_shortenings_are_accepted_without_force(): void
+    {
+        // Dan/Daniela, Bert/Robert, Tiff/Tiffany — common enough that refusing
+        // them would make the guard a nuisance rather than a safeguard.
+        $guest = User::factory()->create(['first_name' => 'Dan', 'last_name' => '', 'role' => 'guest']);
+        $real = User::factory()->create(['first_name' => 'Daniela', 'last_name' => 'Varney', 'role' => 'user']);
+
+        $this->artisan("propoff:merge-guests --merge={$guest->id}:{$real->id}")->assertSuccessful();
+
+        $this->assertNull(User::find($guest->id));
+    }
 }

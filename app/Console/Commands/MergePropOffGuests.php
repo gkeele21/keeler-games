@@ -21,6 +21,7 @@ class MergePropOffGuests extends Command
         {--candidates : List guest credentials that look like someone already known}
         {--merge= : Perform a merge, given as SOURCE_ID:TARGET_ID}
         {--from= : Apply a decision file (JSON), once per environment}
+        {--force : Merge even when the names do not match}
         {--dry-run : Report what would move without writing}';
 
     protected $description = 'Fold PropOff guest credentials into the real person behind them';
@@ -57,6 +58,19 @@ class MergePropOffGuests extends Command
 
         $this->line("Merging <fg=yellow>{$source->name}</> (#{$source->id}, {$source->role})"
             . " into <fg=green>{$target->name}</> (#{$target->id}, {$target->role})");
+
+        // A mistyped id is the likeliest way to merge two unrelated people, and
+        // nothing else catches it: the ids are valid, so every other guard
+        // passes. Sharing a first name is the weakest thing that makes a pair
+        // plausible, so anything below that has to be said out loud.
+        if (! $this->namesArePlausible($source, $target) && ! $this->option('force')) {
+            $this->error(
+                "These names do not look like the same person: \"{$source->name}\" and \"{$target->name}\"."
+            );
+            $this->line('If that is genuinely one person, re-run with <fg=yellow>--force</>.');
+
+            return self::FAILURE;
+        }
 
         try {
             if ($this->option('dry-run')) {
@@ -274,5 +288,26 @@ class MergePropOffGuests extends Command
     private function nameMatches(User $user, string $expected): bool
     {
         return strcasecmp(trim($user->name), trim($expected)) === 0;
+    }
+
+    /**
+     * Whether two records could plausibly be one person. Deliberately generous —
+     * it only has to catch a fat-fingered id, not adjudicate identity, and a
+     * false refusal costs one --force while a false pass costs a restore.
+     */
+    private function namesArePlausible(User $a, User $b): bool
+    {
+        $first = fn (User $u) => mb_strtolower(trim($u->first_name));
+
+        if ($first($a) === '' || $first($b) === '') {
+            return false;
+        }
+
+        if ($first($a) === $first($b)) {
+            return true;
+        }
+
+        // Nicknames and shortenings: Bert/Robert, Dan/Daniela, Tiff/Tiffany.
+        return str_starts_with($first($a), $first($b)) || str_starts_with($first($b), $first($a));
     }
 }
