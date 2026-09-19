@@ -636,6 +636,14 @@ class HostController extends Controller
 
         $answer = $currentQuestion->question->answers()->find($validated['answer_id']);
 
+        // The answer must belong to the question on screen. Without this, a stale
+        // or mismatched answer_id writes an AnswerReveal row and only then hits a
+        // null $answer further down — leaving an orphan reveal behind the 500.
+        // revealFinalAnswer and the tiebreaker path already guard this way.
+        if (!$answer) {
+            return response()->json(['error' => 'Invalid answer'], 400);
+        }
+
         // Family Feud regular round: reveals accrue the survey points into the
         // round POOL — no team is scored here. The pool (sum of these reveals) is
         // awarded in full × the round multiplier once, at feudResolve. We record
