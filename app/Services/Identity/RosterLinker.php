@@ -97,7 +97,15 @@ class RosterLinker
                 $exact = $name === $full;
                 $firstOnly = ! $exact && $name === $first;
 
-                if (! $exact && ! $firstOnly) {
+                // Rosters are written in the shorthand people actually use —
+                // Tiff, Dave, Shay — while the account carries the full name.
+                // Exact matching alone silently misses every one of those.
+                // Three characters minimum, or "Jo" pairs with half the table.
+                $nickname = ! $exact && ! $firstOnly
+                    && mb_strlen($name) >= 3 && mb_strlen($first) >= 3
+                    && (str_starts_with($first, $name) || str_starts_with($name, $first));
+
+                if (! $exact && ! $firstOnly && ! $nickname) {
                     continue;
                 }
 
@@ -114,8 +122,9 @@ class RosterLinker
 
                 [$why, $confidence] = match (true) {
                     $inHousehold && $exact => ['name matches and they are in this household', 'strong'],
-                    $inHousehold => ['first name matches and they are in this household', 'strong'],
+                    $inHousehold => ['name matches and they are in this household', 'strong'],
                     $exact => ['full name matches, but not a member of this household', 'possible'],
+                    $nickname => ['looks like a short form of "' . $user->name . '"', 'nickname'],
                     default => ['first name only, no other signal', 'weak'],
                 };
 
@@ -124,9 +133,10 @@ class RosterLinker
         }
 
         // A player matching more than one person cannot be linked on the name
-        // alone, whatever the name says. This is usually two guest rows for the
-        // same human that have not been merged yet — worth saying, because
-        // merging them first makes the choice disappear.
+        // alone. Sometimes that is two unmerged guest rows for one human, and
+        // merging them first makes the choice disappear — but "Shay" matching
+        // both Shaylene and Shaylee is two different people who happen to share
+        // a short form, so the advice cannot assume either.
         $perPlayer = [];
         foreach ($out as $c) {
             $perPlayer[$c['player']->id] = ($perPlayer[$c['player']->id] ?? 0) + 1;
@@ -134,13 +144,13 @@ class RosterLinker
 
         foreach ($out as &$c) {
             if ($perPlayer[$c['player']->id] > 1) {
-                $c['why'] = 'matches ' . $perPlayer[$c['player']->id] . ' people — merge them first, or pick one';
+                $c['why'] = 'matches ' . $perPlayer[$c['player']->id] . ' accounts — pick one, or merge them if they are the same person';
                 $c['confidence'] = 'ambiguous';
             }
         }
         unset($c);
 
-        $rank = ['strong' => 0, 'possible' => 1, 'ambiguous' => 2, 'weak' => 3];
+        $rank = ['strong' => 0, 'possible' => 1, 'nickname' => 2, 'ambiguous' => 3, 'weak' => 4];
         usort($out, fn ($a, $b) => [$rank[$a['confidence']], $a['player']->name] <=> [$rank[$b['confidence']], $b['player']->name]);
 
         return $out;

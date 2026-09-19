@@ -186,4 +186,37 @@ class RosterLinkTest extends TestCase
 
         $this->assertFileDoesNotExist($path);
     }
+
+    public function test_a_short_form_is_offered_as_a_nickname_match(): void
+    {
+        $owner = User::factory()->create(['first_name' => 'Fixture', 'last_name' => 'Owner']);
+        $house = $this->household($owner);
+        $tiffany = User::factory()->create(['first_name' => 'Tiffany', 'last_name' => '', 'role' => 'guest']);
+
+        // Rosters carry the shorthand people actually use while the account
+        // holds the full name; exact matching alone misses every one of those.
+        Player::create(['household_id' => $house->id, 'name' => 'Tiff', 'is_guest' => false]);
+
+        $match = collect(app(RosterLinker::class)->candidates())
+            ->firstWhere(fn ($c) => $c['user']->id === $tiffany->id);
+
+        $this->assertNotNull($match);
+        $this->assertSame('nickname', $match['confidence']);
+    }
+
+    public function test_a_two_letter_name_does_not_match_everything(): void
+    {
+        $owner = User::factory()->create(['first_name' => 'Fixture', 'last_name' => 'Owner']);
+        $house = $this->household($owner);
+        User::factory()->create(['first_name' => 'Joanna', 'last_name' => '', 'role' => 'guest']);
+        User::factory()->create(['first_name' => 'Jordan', 'last_name' => '', 'role' => 'guest']);
+
+        // Without a minimum length "Jo" would pair with half the table.
+        Player::create(['household_id' => $house->id, 'name' => 'Jo', 'is_guest' => false]);
+
+        $matches = collect(app(RosterLinker::class)->candidates())
+            ->filter(fn ($c) => $c['player']->name === 'Jo');
+
+        $this->assertCount(0, $matches);
+    }
 }
