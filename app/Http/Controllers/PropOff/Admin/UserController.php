@@ -124,29 +124,6 @@ class UserController extends Controller
             ->with('success', "User '{$userName}' deleted successfully!");
     }
 
-    /**
-     * View user activity log.
-     */
-    public function activity(User $user)
-    {
-        // Get all entries with events
-        $entries = $user->propoffEntries()
-            ->with(['event', 'group'])
-            ->latest('created_at')
-            ->paginate(20);
-
-        // Get group memberships
-        $groupActivity = $user->propoffGroups()
-            ->withPivot('joined_at')
-            ->orderBy('propoff_group_user.joined_at', 'desc')
-            ->get();
-
-        return Inertia::render('PropOff/Admin/Users/Activity', [
-            'user' => $user,
-            'entries' => $entries,
-            'groupActivity' => $groupActivity,
-        ]);
-    }
 
     /**
      * Export users to CSV.
@@ -224,44 +201,4 @@ class UserController extends Controller
         return back()->with('success', "{$count} users deleted successfully!");
     }
 
-    /**
-     * View user statistics dashboard.
-     */
-    public function statistics()
-    {
-        $stats = [
-            'total_users' => User::count(),
-            'manager_count' => User::where('role', 'manager')->count(),
-            'admin_count' => User::where('role', 'admin')->count(),
-            'regular_users' => User::where('role', 'user')->count(),
-            'verified_users' => User::whereNotNull('email_verified_at')->count(),
-            'unverified_users' => User::whereNull('email_verified_at')->count(),
-            'active_users' => User::whereHas('propoffEntries', function ($query) {
-                $query->where('created_at', '>=', now()->subDays(30));
-            })->count(),
-        ];
-
-        // Users by month
-        // sqlite (tests) has no DATE_FORMAT
-        $monthExpr = \DB::getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', created_at)"
-            : 'DATE_FORMAT(created_at, "%Y-%m")';
-        $usersByMonth = User::selectRaw($monthExpr . ' as month, COUNT(*) as count')
-            ->groupBy('month')
-            ->orderBy('month', 'desc')
-            ->limit(12)
-            ->get();
-
-        // Top participants
-        $topParticipants = User::withCount('propoffEntries as entries_count')
-            ->orderByDesc('entries_count')
-            ->limit(10)
-            ->get();
-
-        return Inertia::render('PropOff/Admin/Users/Statistics', [
-            'stats' => $stats,
-            'usersByMonth' => $usersByMonth,
-            'topParticipants' => $topParticipants,
-        ]);
-    }
 }

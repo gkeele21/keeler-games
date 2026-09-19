@@ -59,6 +59,22 @@ class GuestController extends Controller
     {
         $token = $request->route('token');
 
+        // Someone already signed in is simply joining the group as themselves.
+        // Without this they fall through to guest registration and end up as a
+        // second, duplicate person — the exact problem the claim step exists to
+        // prevent, reached by a different door.
+        if ($existing = $request->user()) {
+            $invitation = EventInvitation::where('token', $token)
+                ->with(['event', 'group'])
+                ->firstOrFail();
+
+            if (! $invitation->isValid()) {
+                return back()->withErrors(['token' => 'This invitation is no longer valid.']);
+            }
+
+            return $this->completeJoin($existing, $invitation, $resolver);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',

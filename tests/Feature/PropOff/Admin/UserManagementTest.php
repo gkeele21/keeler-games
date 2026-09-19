@@ -29,25 +29,6 @@ class UserManagementTest extends TestCase
     }
 
     /** @test */
-    public function admin_can_view_user_statistics()
-    {
-        $this->markTestSkipped('Admin/Users/Statistics component not yet implemented');
-
-        $admin = User::factory()->manager()->create();
-        User::factory()->count(10)->create();
-
-        $response = $this->actingAs($admin)->get(route('propoff.admin.users.statistics'));
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('PropOff/Admin/Users/Statistics')
-            ->has('stats')
-            ->has('usersByMonth')
-            ->has('topParticipants')
-        );
-    }
-
-    /** @test */
     public function admin_can_view_individual_user()
     {
         $admin = User::factory()->manager()->create();
@@ -134,37 +115,6 @@ class UserManagementTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('error', 'You cannot delete yourself!');
         $this->assertDatabaseHas('users', ['id' => $admin->id]);
-    }
-
-    /** @test */
-    public function admin_can_view_user_activity()
-    {
-        $this->markTestSkipped('Admin/Users/Activity component not yet implemented');
-
-        $admin = User::factory()->manager()->create();
-        $user = User::factory()->create();
-        $event = Event::factory()->create();
-        $group = Group::factory()->create(['event_id' => $event->id]);
-
-        // Add user to group
-        $group->users()->attach($user->id, ['joined_at' => now()]);
-
-        // Create an entry
-        Entry::factory()->create([
-            'user_id' => $user->id,
-            'event_id' => $event->id,
-            'group_id' => $group->id,
-        ]);
-
-        $response = $this->actingAs($admin)->get(route('propoff.admin.users.activity', $user));
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('PropOff/Admin/Users/Activity')
-            ->has('user')
-            ->has('entries')
-            ->has('groupActivity')
-        );
     }
 
     /** @test */
@@ -346,15 +296,6 @@ class UserManagementTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function non_admin_cannot_view_user_statistics()
-    {
-        $user = User::factory()->create();
-
-        $response = $this->actingAs($user)->get(route('propoff.admin.users.statistics'));
-
-        $response->assertStatus(403);
-    }
 
     /** @test */
     public function non_admin_cannot_export_users_csv()
@@ -387,27 +328,6 @@ class UserManagementTest extends TestCase
         $this->actingAs($admin)->delete(route('propoff.admin.users.destroy', $user));
 
         $this->assertDatabaseMissing('users', ['first_name' => 'Test', 'last_name' => 'User']);
-    }
-
-    /** @test */
-    public function user_statistics_show_correct_counts()
-    {
-        $admin = User::factory()->manager()->create();
-
-        // Create users with different roles
-        User::factory()->count(5)->create(['role' => 'user']);
-        User::factory()->count(2)->admin()->create();
-        User::factory()->count(3)->create(['role' => 'user', 'email_verified_at' => null]);
-
-        $response = $this->actingAs($admin)->get(route('propoff.admin.users.statistics'));
-
-        $response->assertStatus(200);
-        $stats = $response->viewData('page')['props']['stats'];
-
-        $this->assertGreaterThanOrEqual(8, $stats['total_users']); // Including the test admin
-        // Actor is a manager in keeler (manager tier sits above admin)
-        $this->assertGreaterThanOrEqual(2, $stats['admin_count']);
-        $this->assertGreaterThanOrEqual(5, $stats['regular_users']);
     }
 
     /** @test */

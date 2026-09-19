@@ -355,7 +355,6 @@ class InvitationSystemTest extends TestCase
     /** @test */
     public function authenticated_user_can_join_group_via_invitation()
     {
-        $this->markTestSkipped('Authenticated user join via invitation is not yet implemented in guest.register route');
 
         $user = User::factory()->create();
         $event = Event::factory()->create();

@@ -206,44 +206,6 @@ class EventController extends Controller
             ->with('success', 'Event duplicated successfully!');
     }
 
-    /**
-     * Get event statistics.
-     */
-    public function statistics(Event $event)
-    {
-        $stats = [
-            'total_entries' => $event->entries()->count(),
-            'completed_entries' => $event->entries()->where('is_complete', true)->count(),
-            'pending_entries' => $event->entries()->where('is_complete', false)->count(),
-            'average_score' => $event->entries()->where('is_complete', true)->avg('percentage') ?? 0,
-            'highest_score' => $event->entries()->where('is_complete', true)->max('percentage') ?? 0,
-            'lowest_score' => $event->entries()->where('is_complete', true)->min('percentage') ?? 0,
-            'total_participants' => $event->entries()->distinct('user_id')->count('user_id'),
-            'questions_count' => $event->eventQuestions()->count(),
-        ];
-
-        // Entries by group
-        $entriesByGroup = $event->entries()
-            ->with('group')
-            ->where('is_complete', true)
-            ->get()
-            ->groupBy('group_id')
-            ->map(function ($entries, $groupId) {
-                $group = $entries->first()->group;
-                return [
-                    'group_name' => $group->name,
-                    'count' => $entries->count(),
-                    'average_score' => $entries->avg('percentage'),
-                ];
-            })
-            ->values();
-
-        return Inertia::render('PropOff/Admin/Events/Statistics', [
-            'event' => $event,
-            'stats' => $stats,
-            'entriesByGroup' => $entriesByGroup,
-        ]);
-    }
 
     /**
      * Generate invitation for event-group combination.

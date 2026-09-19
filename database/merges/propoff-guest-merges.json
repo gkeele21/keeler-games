@@ -166,5 +166,47 @@
     "source_name": "barry",
     "target_name": "Barry",
     "note": "Confirmed by Grant. Abandoned registration \u2014 joined no group and never played, so it holds no data."
+  },
+  {
+    "source": 17,
+    "target": 54,
+    "source_name": "Ethan Keele",
+    "target_name": "Ethan",
+    "note": "Applied directly in production by Grant. Plays in more than one pool; the two rows are the same person."
+  },
+  {
+    "source": 21,
+    "target": 71,
+    "source_name": "Addi",
+    "target_name": "Addi",
+    "note": "Applied directly in production by Grant. Abandoned registration alongside the row that played."
+  },
+  {
+    "source": 42,
+    "target": 75,
+    "source_name": "David L. Southwick",
+    "target_name": "David",
+    "note": "Applied directly in production by Grant. Plays in more than one pool; the two rows are the same person."
+  },
+  {
+    "source": 67,
+    "target": 84,
+    "source_name": "Hazel",
+    "target_name": "Hazel",
+    "note": "Applied directly in production by Grant. Plays in more than one pool; the two rows are the same person."
+  },
+  {
+    "source": 105,
+    "target": 27,
+    "source_name": "Ben",
+    "target_name": "Ben",
+    "note": "Applied directly in production by Grant. Same person \u2014 confirmed against the people involved."
+  },
+  {
+    "source": 134,
+    "target": 99,
+    "source_name": "Logan Pratt",
+    "target_name": "Logan Marek",
+    "note": "Applied directly in production by Grant. Same person \u2014 confirmed against the people involved."
   }
 ]
