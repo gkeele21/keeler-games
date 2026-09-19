@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\GameSession;
 use App\Models\SessionPlayer;
 use App\Models\Team;
-use App\Models\TeamMember;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -183,14 +182,8 @@ class PlayerController extends Controller
             'display_order' => $order + 1,
         ]);
 
-        // Add player as team member
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $sessionPlayer->user_id,
-            'guest_name' => $sessionPlayer->guest_name,
-        ]);
-
-        // Update session player with team assignment
+        // The session player IS the team membership — team_id is the whole of
+        // it. This used to also write a team_members row saying the same thing.
         $sessionPlayer->update(['team_id' => $team->id]);
     }
 
@@ -297,14 +290,8 @@ class PlayerController extends Controller
             return redirect()->route('player.identify', $gameSession);
         }
 
-        // Add player as team member
-        TeamMember::create([
-            'team_id' => $team->id,
-            'user_id' => $sessionPlayer->user_id,
-            'guest_name' => $sessionPlayer->guest_name,
-        ]);
-
-        // Update session player with team assignment
+        // The session player IS the team membership — team_id is the whole of
+        // it. This used to also write a team_members row saying the same thing.
         $sessionPlayer->update(['team_id' => $team->id]);
 
         return redirect()->route('player.game', $gameSession);

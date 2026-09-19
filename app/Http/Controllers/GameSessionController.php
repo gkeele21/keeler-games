@@ -6,7 +6,7 @@ use App\Models\GameSession;
 use App\Models\GameState;
 use App\Models\GameType;
 use App\Models\Team;
-use App\Models\TeamMember;
+use App\Models\SessionPlayer;
 use App\Models\User;
 use App\Services\GameInitializationService;
 use Illuminate\Http\Request;
@@ -291,47 +291,43 @@ class GameSessionController extends Controller
             'session_player_id' => 'required_if:type,session_player|nullable|exists:session_players,id',
         ]);
 
-        if ($validated['type'] === 'guest') {
-            TeamMember::create([
-                'team_id' => $team->id,
-                'guest_name' => $validated['guest_name'],
-            ]);
-        } elseif ($validated['type'] === 'friend') {
-            // Check if user is already on a team in this session
-            $existingMember = TeamMember::whereHas('team', function ($query) use ($gameSession) {
-                $query->where('game_id', $gameSession->id);
-            })->where('user_id', $validated['user_id'])->first();
-
-            if ($existingMember) {
-                return back()->withErrors(['user_id' => 'This user is already on a team.']);
-            }
-
-            TeamMember::create([
-                'team_id' => $team->id,
-                'user_id' => $validated['user_id'],
-            ]);
-        } elseif ($validated['type'] === 'session_player') {
+        // A participant is one session_players row carrying its own team_id.
+        // This used to write a team_members row as well, so someone joining a
+        // team existed twice with nothing keeping the two halves in step.
+        if ($validated['type'] === 'session_player') {
             $sessionPlayer = $gameSession->sessionPlayers()->find($validated['session_player_id']);
 
             if (!$sessionPlayer) {
                 return back()->withErrors(['session_player_id' => 'Player not found in this session.']);
             }
 
-            // Create team member from session player
-            TeamMember::create([
-                'team_id' => $team->id,
-                'user_id' => $sessionPlayer->user_id,
-                'guest_name' => $sessionPlayer->guest_name,
-            ]);
-
-            // Update session player with team assignment
             $sessionPlayer->update(['team_id' => $team->id]);
+
+            return back()->with('success', 'Team member added successfully');
         }
+
+        if ($validated['type'] === 'friend') {
+            $alreadyPlaying = $gameSession->sessionPlayers()
+                ->where('user_id', $validated['user_id'])
+                ->whereNotNull('team_id')
+                ->exists();
+
+            if ($alreadyPlaying) {
+                return back()->withErrors(['user_id' => 'This user is already on a team.']);
+            }
+        }
+
+        $gameSession->sessionPlayers()->create([
+            'team_id' => $team->id,
+            'user_id' => $validated['type'] === 'friend' ? $validated['user_id'] : null,
+            'guest_name' => $validated['type'] === 'guest' ? $validated['guest_name'] : null,
+            'joined_at' => now(),
+        ]);
 
         return back()->with('success', 'Team member added successfully');
     }
 
-    public function removeTeamMember(GameSession $gameSession, Team $team, TeamMember $teamMember)
+    public function removeTeamMember(GameSession $gameSession, Team $team, SessionPlayer $teamMember)
     {
         if ($gameSession->host_user_id !== auth()->id()) {
             abort(403);
@@ -341,14 +337,14 @@ class GameSessionController extends Controller
             abort(403);
         }
 
-        // If this member was from a session player, unassign them from the team
+        // Someone who joined by invite code stays in the session, just off the
+        // team; a guest the host typed in exists only as that team slot, so
+        // removing them removes the row.
         if ($teamMember->user_id) {
-            $gameSession->sessionPlayers()
-                ->where('user_id', $teamMember->user_id)
-                ->update(['team_id' => null]);
+            $teamMember->update(['team_id' => null]);
+        } else {
+            $teamMember->delete();
         }
-
-        $teamMember->delete();
 
         return back()->with('success', 'Team member removed successfully');
     }
