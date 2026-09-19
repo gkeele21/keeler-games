@@ -36,12 +36,22 @@ during the merge work — there are two different people called Hazel.
 |---|---|
 | `strong` | Name matches **and** that account is a member of this household |
 | `possible` | Full name matches, but they are not in this household |
-| `ambiguous` | The player matches two or more people — usually unmerged guest rows |
+| `nickname` | The roster name is a short form of the account's — "Tiff" for Tiffany |
+| `ambiguous` | The player matches two or more accounts |
 | `weak` | First name only, nothing else |
 
-**Resolve `ambiguous` rows by merging first.** A player matching two accounts
-normally means two guest rows for one human that `propoff:merge-guests` has not
-folded together yet. Merge them and the choice disappears.
+`ambiguous` has two causes and the tool cannot tell them apart. Sometimes it is
+two unmerged guest rows for one human, and merging them first makes the choice
+disappear. Sometimes it is genuinely two people who share a short form — "Shay"
+matches both Shaylene and Shaylee. Only you know which.
+
+Nickname matching is prefix-based, so it catches Tiff/Tiffany but **not**
+Dave/David, where the short form is not the start of the full name. Those still
+have to be linked by hand with `--link`.
+
+**Check `ambiguous` rows before acting.** If the two accounts are one human,
+merge them with `propoff:merge-guests` and the choice disappears. If they are
+two people, pick the right one.
 
 Then link, record, and replay:
 
