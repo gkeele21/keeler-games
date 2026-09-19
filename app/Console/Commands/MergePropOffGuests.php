@@ -190,8 +190,13 @@ class MergePropOffGuests extends Command
                     }
 
                     if ($ea > 0 && $eb > 0 && ! $shared) {
+                        // Weaker than it first looks: people join more than one
+                        // pool, so two entries in different groups is as
+                        // consistent with one keen player as with two people.
+                        // Several pairs flagged here turned out to be the same
+                        // person. Only someone who knows them can say.
                         $rows[] = [$src->id, $src->name, $dst->id, $dst->name,
-                            'different groups, both played — probably two people', 'unlikely'];
+                            'different groups, both played — could be one keen player or two people', 'ask'];
                         continue;
                     }
 
@@ -206,13 +211,13 @@ class MergePropOffGuests extends Command
             return self::SUCCESS;
         }
 
-        $rank = ['likely' => 0, 'unclear' => 1, 'unlikely' => 2];
+        $rank = ['likely' => 0, 'unclear' => 1, 'ask' => 2];
         usort($rows, fn ($a, $b) => [$rank[$a[5]], $a[1]] <=> [$rank[$b[5]], $b[1]]);
 
         $this->table(['guest #', 'guest', 'into #', 'into', 'why', 'verdict'], $rows);
         $this->newLine();
-        $this->line('<fg=yellow>Suggestions only.</> "unlikely" rows are shown so you can see what was');
-        $this->line('considered and rejected — merging one would fuse two different people.');
+        $this->line('<fg=yellow>Suggestions only.</> "ask" rows are the ones no rule can settle:');
+        $this->line('two entries in different pools is as likely one keen player as two people.');
         $this->line('Then: <fg=green>php artisan propoff:merge-guests --merge=GUEST:INTO --dry-run</>');
 
         return self::SUCCESS;
