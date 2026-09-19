@@ -103,7 +103,6 @@ Route::prefix('propoff')->name('propoff.')->group(function () {
         Route::resource('events', AdminEventController::class);
         Route::post('events/{event}/update-status', [AdminEventController::class, 'updateStatus'])->name('events.updateStatus');
         Route::post('events/{event}/duplicate', [AdminEventController::class, 'duplicate'])->name('events.duplicate');
-        Route::get('events/{event}/statistics', [AdminEventController::class, 'statistics'])->name('events.statistics');
 
         Route::post('events/{event}/generate-invitation', [AdminEventController::class, 'generateInvitation'])->name('events.generateInvitation');
         Route::post('events/{event}/invitations/{invitation}/deactivate', [AdminEventController::class, 'deactivateInvitation'])->name('events.deactivateInvitation');
@@ -153,17 +152,14 @@ Route::prefix('propoff')->name('propoff.')->group(function () {
             Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
             Route::get('users/export/csv', [AdminUserController::class, 'exportCSV'])->name('users.exportCSV');
             Route::post('users/bulk-delete', [AdminUserController::class, 'bulkDelete'])->name('users.bulkDelete');
-            Route::get('users-statistics', [AdminUserController::class, 'statistics'])->name('users.statistics');
             Route::get('users/{user}', [AdminUserController::class, 'show'])->name('users.show');
             Route::post('users/{user}/update-role', [AdminUserController::class, 'updateRole'])->name('users.updateRole');
             Route::delete('users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
-            Route::get('users/{user}/activity', [AdminUserController::class, 'activity'])->name('users.activity');
 
             Route::get('groups', [AdminGroupController::class, 'index'])->name('groups.index');
             Route::get('groups/create', [AdminGroupController::class, 'create'])->name('groups.create');
             Route::post('groups', [AdminGroupController::class, 'store'])->name('groups.store');
             Route::get('groups/export/csv', [AdminGroupController::class, 'exportCSV'])->name('groups.exportCSV');
-            Route::get('groups-statistics', [AdminGroupController::class, 'statistics'])->name('groups.statistics');
             Route::post('groups/bulk-delete', [AdminGroupController::class, 'bulkDelete'])->name('groups.bulkDelete');
             Route::get('groups/{group}', [AdminGroupController::class, 'show'])->name('groups.show');
             Route::get('groups/{group}/edit', [AdminGroupController::class, 'edit'])->name('groups.edit');
@@ -171,7 +167,6 @@ Route::prefix('propoff')->name('propoff.')->group(function () {
             Route::delete('groups/{group}', [AdminGroupController::class, 'destroy'])->name('groups.destroy');
             Route::post('groups/{group}/add-user', [AdminGroupController::class, 'addUser'])->name('groups.addUser');
             Route::delete('groups/{group}/users/{user}', [AdminGroupController::class, 'removeUser'])->name('groups.removeUser');
-            Route::get('groups/{group}/members', [AdminGroupController::class, 'members'])->name('groups.members');
         });
     });
 });

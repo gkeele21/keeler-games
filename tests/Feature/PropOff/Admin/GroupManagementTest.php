@@ -30,27 +30,6 @@ class GroupManagementTest extends TestCase
     }
 
     /** @test */
-    public function admin_can_view_group_statistics()
-    {
-        $this->markTestSkipped('Statistics view requires database-specific functions');
-
-        $admin = User::factory()->manager()->create();
-        $event = Event::factory()->create();
-        Group::factory()->count(10)->create(['event_id' => $event->id]);
-
-        $response = $this->actingAs($admin)->get(route('propoff.admin.groups.statistics'));
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('PropOff/Admin/Groups/Statistics')
-            ->has('stats')
-            ->has('groupsByMonth')
-            ->has('mostActiveGroups')
-            ->has('largestGroups')
-        );
-    }
-
-    /** @test */
     public function admin_can_view_create_group_form()
     {
         $admin = User::factory()->manager()->create();
@@ -284,31 +263,6 @@ class GroupManagementTest extends TestCase
     }
 
     /** @test */
-    public function admin_can_view_group_members()
-    {
-        $this->markTestSkipped('Admin/Groups/Members component not yet implemented');
-
-        $admin = User::factory()->manager()->create();
-        $event = Event::factory()->create();
-        $group = Group::factory()->create(['event_id' => $event->id]);
-
-        // Add members
-        $users = User::factory()->count(5)->create();
-        foreach ($users as $user) {
-            $group->users()->attach($user->id, ['joined_at' => now()]);
-        }
-
-        $response = $this->actingAs($admin)->get(route('propoff.admin.groups.members', $group));
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('PropOff/Admin/Groups/Members')
-            ->has('group')
-            ->has('members')
-        );
-    }
-
-    /** @test */
     public function admin_can_export_groups_csv()
     {
         $admin = User::factory()->manager()->create();
@@ -514,15 +468,6 @@ class GroupManagementTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
-    public function non_admin_cannot_view_group_statistics()
-    {
-        $user = User::factory()->create();
-
-        $response = $this->actingAs($user)->get(route('propoff.admin.groups.statistics'));
-
-        $response->assertStatus(403);
-    }
 
     /** @test */
     public function non_admin_cannot_export_groups_csv()
@@ -582,29 +527,4 @@ class GroupManagementTest extends TestCase
         $response->assertSessionHasErrors('group_ids');
     }
 
-    /** @test */
-    public function group_statistics_show_correct_data()
-    {
-        $this->markTestSkipped('Statistics view requires database-specific functions');
-
-        $admin = User::factory()->manager()->create();
-        $event = Event::factory()->create();
-
-        // Create groups with members
-        $groupWithMembers = Group::factory()->create(['event_id' => $event->id]);
-        $user = User::factory()->create();
-        $groupWithMembers->users()->attach($user->id, ['joined_at' => now()]);
-
-        // Create empty group
-        Group::factory()->create(['event_id' => $event->id]);
-
-        $response = $this->actingAs($admin)->get(route('propoff.admin.groups.statistics'));
-
-        $response->assertStatus(200);
-        $stats = $response->viewData('page')['props']['stats'];
-
-        $this->assertGreaterThanOrEqual(2, $stats['total_groups']);
-        $this->assertGreaterThanOrEqual(1, $stats['groups_with_members']);
-        $this->assertGreaterThanOrEqual(1, $stats['empty_groups']);
-    }
 }

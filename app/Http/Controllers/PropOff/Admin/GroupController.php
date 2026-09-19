@@ -259,69 +259,7 @@ class GroupController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    /**
-     * View group statistics dashboard.
-     */
-    public function statistics()
-    {
-        $stats = [
-            'total_groups' => Group::count(),
-            'groups_with_members' => Group::has('users')->count(),
-            'empty_groups' => Group::doesntHave('users')->count(),
-            'active_groups' => Group::whereHas('entries', function ($query) {
-                $query->where('created_at', '>=', now()->subDays(30));
-            })->count(),
-            'average_members_per_group' => round(Group::withCount('users')->avg('users_count'), 2),
-            'average_entries_per_group' => round(Group::withCount('entries')->avg('entries_count'), 2),
-        ];
 
-        // Groups by month
-        // sqlite (tests) has no DATE_FORMAT
-        $monthExpr = \DB::getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', created_at)"
-            : 'DATE_FORMAT(created_at, "%Y-%m")';
-        $groupsByMonth = Group::selectRaw($monthExpr . ' as month, COUNT(*) as count')
-            ->groupBy('month')
-            ->orderBy('month', 'desc')
-            ->limit(12)
-            ->get();
-
-        // Most active groups
-        $mostActiveGroups = Group::withCount('entries')
-            ->orderByDesc('entries_count')
-            ->limit(10)
-            ->get();
-
-        // Largest groups
-        $largestGroups = Group::withCount('users')
-            ->orderByDesc('users_count')
-            ->limit(10)
-            ->get();
-
-        return Inertia::render('PropOff/Admin/Groups/Statistics', [
-            'stats' => $stats,
-            'groupsByMonth' => $groupsByMonth,
-            'mostActiveGroups' => $mostActiveGroups,
-            'largestGroups' => $largestGroups,
-        ]);
-    }
-
-    /**
-     * View group members.
-     */
-    public function members(Group $group)
-    {
-        $members = $group->users()
-            ->withPivot('joined_at')
-            ->withCount('entries')
-            ->orderBy('propoff_group_user.joined_at', 'desc')
-            ->get();
-
-        return Inertia::render('PropOff/Admin/Groups/Members', [
-            'group' => $group,
-            'members' => $members,
-        ]);
-    }
 
     /**
      * Bulk delete groups.

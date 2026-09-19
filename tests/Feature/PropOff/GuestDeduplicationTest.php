@@ -62,6 +62,9 @@ class GuestDeduplicationTest extends TestCase
         $invitation = $this->invitation();
 
         $this->post(route('propoff.guest.register', $invitation->token), ['name' => 'Megan Adams']);
+        // A second person is on their own device: genuinely signed out, not
+        // just a cleared session — otherwise the post arrives as the first.
+        auth()->logout();
         $this->flushSession();
 
         $this->post(route('propoff.guest.register', $invitation->token), ['name' => 'Megan Adams'])
@@ -79,6 +82,9 @@ class GuestDeduplicationTest extends TestCase
 
         $this->post(route('propoff.guest.register', $invitation->token), ['name' => 'Megan Adams']);
         $existing = User::where('first_name', 'Megan')->firstOrFail();
+        // A second person is on their own device: genuinely signed out, not
+        // just a cleared session — otherwise the post arrives as the first.
+        auth()->logout();
         $this->flushSession();
 
         $this->post(route('propoff.guest.register', $invitation->token), [
@@ -97,6 +103,9 @@ class GuestDeduplicationTest extends TestCase
         $invitation = $this->invitation();
 
         $this->post(route('propoff.guest.register', $invitation->token), ['name' => 'Megan Adams']);
+        // A second person is on their own device: genuinely signed out, not
+        // just a cleared session — otherwise the post arrives as the first.
+        auth()->logout();
         $this->flushSession();
 
         $this->post(route('propoff.guest.register', $invitation->token), [

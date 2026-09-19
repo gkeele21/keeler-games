@@ -15,29 +15,6 @@ class GroupManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
-    public function user_can_view_groups_index()
-    {
-        $this->markTestSkipped('Groups/Index is a join-code page now; it takes no group props.');
-        $user = User::factory()->create();
-        $event = Event::factory()->create();
-
-        // Create user's groups
-        $userGroup = Group::factory()->create(['event_id' => $event->id]);
-        $userGroup->users()->attach($user->id, ['joined_at' => now()]);
-
-        // Create other groups
-        Group::factory()->count(3)->create(['event_id' => $event->id]);
-
-        $response = $this->actingAs($user)->get(route('propoff.groups.index'));
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('PropOff/Groups/Index')
-            ->has('userGroups')
-            ->has('publicGroups')
-        );
-    }
 
     /** @test */
     public function user_can_view_create_group_form()
@@ -519,29 +496,6 @@ class GroupManagementTest extends TestCase
         $this->assertEquals(2, GroupQuestion::where('group_id', $group->id)->count());
     }
 
-    /** @test */
-    public function only_user_groups_show_in_index()
-    {
-        $this->markTestSkipped('Groups/Index is a join-code page now; it takes no group props.');
-        $user = User::factory()->create();
-        $event = Event::factory()->create();
-
-        // User's group
-        $userGroup = Group::factory()->create(['event_id' => $event->id, 'name' => 'My Group']);
-        $userGroup->users()->attach($user->id, ['joined_at' => now()]);
-
-        // Other user's group
-        $otherGroup = Group::factory()->create(['event_id' => $event->id, 'name' => 'Other Group']);
-
-        $response = $this->actingAs($user)->get(route('propoff.groups.index'));
-
-        $response->assertStatus(200);
-        $userGroups = $response->viewData('page')['props']['userGroups'];
-
-        // Verify user's group is in the list
-        $groupNames = collect($userGroups)->pluck('name')->toArray();
-        $this->assertContains('My Group', $groupNames);
-    }
 
     /** @test */
     public function admin_can_view_any_group()

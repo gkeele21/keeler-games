@@ -333,7 +333,6 @@ class QuestionTemplateCRUDTest extends TestCase
     /** @test */
     public function category_field_can_be_empty()
     {
-        $this->markTestSkipped('MySQL strict mode requires explicit DEFAULT NULL in schema. Fix: Run migration to add DEFAULT NULL to category column, or adjust MySQL strict mode settings.');
 
         $admin = User::factory()->manager()->create();
 

@@ -16,48 +16,8 @@ class EventQuestionCRUDTest extends TestCase
     use RefreshDatabase;
 
     /** @test */
-    public function admin_can_view_event_questions_index()
-    {
-        $this->markTestSkipped('Standalone event-question pages were removed upstream; management is embedded in event pages.');
-        $admin = User::factory()->admin()->create();
-        $event = Event::factory()->create(['created_by' => $admin->id]);
-
-        EventQuestion::factory()->count(3)->create(['event_id' => $event->id]);
-
-        $response = $this->actingAs($admin)->get(
-            route('propoff.admin.events.event-questions.index', $event)
-        );
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('PropOff/Admin/EventQuestions/Index')
-                ->has('questions', 3)
-        );
-    }
-
-    /** @test */
-    public function admin_can_view_create_question_form()
-    {
-        $this->markTestSkipped('Standalone event-question pages were removed upstream; management is embedded in event pages.');
-        $admin = User::factory()->admin()->create();
-        $event = Event::factory()->create(['created_by' => $admin->id]);
-
-        $response = $this->actingAs($admin)->get(
-            route('propoff.admin.events.event-questions.create', $event)
-        );
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('PropOff/Admin/EventQuestions/Create')
-                ->has('event')
-                ->has('nextOrder')
-        );
-    }
-
-    /** @test */
     public function admin_can_create_custom_question()
     {
-        $this->markTestSkipped('Standalone event-question pages were removed upstream; management is embedded in event pages.');
         $admin = User::factory()->admin()->create();
         $event = Event::factory()->create(['created_by' => $admin->id]);
         $group = Group::factory()->create(['event_id' => $event->id]);
@@ -78,7 +38,8 @@ class EventQuestionCRUDTest extends TestCase
             $questionData
         );
 
-        $response->assertRedirect(route('propoff.admin.events.event-questions.index', $event));
+        // Question management moved onto the event page; the standalone index is gone.
+        $response->assertRedirect(route('propoff.admin.events.show', $event));
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('propoff_event_questions', [
@@ -100,7 +61,6 @@ class EventQuestionCRUDTest extends TestCase
     /** @test */
     public function admin_can_create_question_from_template()
     {
-        $this->markTestSkipped('Standalone event-question pages were removed upstream; management is embedded in event pages.');
         $admin = User::factory()->admin()->create();
         $event = Event::factory()->create(['created_by' => $admin->id]);
         $group = Group::factory()->create(['event_id' => $event->id]);
@@ -125,7 +85,8 @@ class EventQuestionCRUDTest extends TestCase
             ]
         );
 
-        $response->assertRedirect(route('propoff.admin.events.event-questions.index', $event));
+        // Question management moved onto the event page; the standalone index is gone.
+        $response->assertRedirect(route('propoff.admin.events.show', $event));
 
         $this->assertDatabaseHas('propoff_event_questions', [
             'event_id' => $event->id,
@@ -136,28 +97,8 @@ class EventQuestionCRUDTest extends TestCase
     }
 
     /** @test */
-    public function admin_can_view_edit_question_form()
-    {
-        $this->markTestSkipped('Standalone event-question pages were removed upstream; management is embedded in event pages.');
-        $admin = User::factory()->admin()->create();
-        $event = Event::factory()->create(['created_by' => $admin->id]);
-        $question = EventQuestion::factory()->create(['event_id' => $event->id]);
-
-        $response = $this->actingAs($admin)->get(
-            route('propoff.admin.events.event-questions.edit', [$event, $question])
-        );
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) =>
-            $page->component('PropOff/Admin/EventQuestions/Edit')
-                ->has('eventQuestion')
-        );
-    }
-
-    /** @test */
     public function admin_can_update_question()
     {
-        $this->markTestSkipped('Standalone event-question pages were removed upstream; management is embedded in event pages.');
         $admin = User::factory()->admin()->create();
         $event = Event::factory()->create(['created_by' => $admin->id]);
         $group = Group::factory()->create(['event_id' => $event->id]);
@@ -183,7 +124,9 @@ class EventQuestionCRUDTest extends TestCase
             'question_type' => 'text',
             'options' => null,
             'points' => 15,
-            'order' => 1,
+            // The controller requires display_order; the test predated that and
+            // was sending 'order', which the validator ignores.
+            'display_order' => 1,
         ];
 
         $response = $this->actingAs($admin)->patch(
@@ -191,7 +134,8 @@ class EventQuestionCRUDTest extends TestCase
             $updateData
         );
 
-        $response->assertRedirect(route('propoff.admin.events.event-questions.index', $event));
+        // Question management moved onto the event page; the standalone index is gone.
+        $response->assertRedirect(route('propoff.admin.events.show', $event));
 
         $this->assertDatabaseHas('propoff_event_questions', [
             'id' => $question->id,
@@ -210,7 +154,6 @@ class EventQuestionCRUDTest extends TestCase
     /** @test */
     public function admin_can_delete_question()
     {
-        $this->markTestSkipped('Standalone event-question pages were removed upstream; management is embedded in event pages.');
         $admin = User::factory()->admin()->create();
         $event = Event::factory()->create(['created_by' => $admin->id]);
         $question = EventQuestion::factory()->create(['event_id' => $event->id]);
@@ -219,7 +162,8 @@ class EventQuestionCRUDTest extends TestCase
             route('propoff.admin.events.event-questions.destroy', [$event, $question])
         );
 
-        $response->assertRedirect(route('propoff.admin.events.event-questions.index', $event));
+        // Question management moved onto the event page; the standalone index is gone.
+        $response->assertRedirect(route('propoff.admin.events.show', $event));
         $this->assertDatabaseMissing('propoff_event_questions', ['id' => $question->id]);
     }
 

@@ -18,7 +18,6 @@ class ConsolidatedVariableImportTest extends TestCase
     /** @test */
     public function can_import_multiple_templates_with_shared_variables()
     {
-        $this->markTestSkipped('Standalone event-question pages were removed upstream; management is embedded in event pages.');
         $admin = User::factory()->admin()->create();
         $event = Event::factory()->create(['created_by' => $admin->id]);
         $group = Group::factory()->create(['event_id' => $event->id]);
@@ -58,7 +57,8 @@ class ConsolidatedVariableImportTest extends TestCase
             ]
         );
 
-        $response->assertRedirect(route('propoff.admin.events.event-questions.index', $event));
+        // Question management moved onto the event page; the standalone index is gone.
+        $response->assertRedirect(route('propoff.admin.events.show', $event));
 
         $this->assertDatabaseHas('propoff_event_questions', [
             'event_id' => $event->id,
