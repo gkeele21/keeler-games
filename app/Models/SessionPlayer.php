@@ -15,11 +15,13 @@ class SessionPlayer extends Model
         'user_id',
         'guest_name',
         'team_id',
+        'is_captain',
         'joined_at',
     ];
 
     protected $casts = [
         'joined_at' => 'datetime',
+        'is_captain' => 'boolean',
     ];
 
     protected $appends = [

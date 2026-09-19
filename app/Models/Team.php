@@ -36,9 +36,14 @@ class Team extends Model
         return $this->belongsTo(GameSession::class, 'game_id');
     }
 
+    /**
+     * Who is on this side. Participation lives entirely on session_players,
+     * which carries team_id; the separate team_members table said the same
+     * thing with one extra flag and has been folded in.
+     */
     public function members(): HasMany
     {
-        return $this->hasMany(TeamMember::class);
+        return $this->hasMany(SessionPlayer::class, 'team_id');
     }
 
     public function answerReveals(): HasMany

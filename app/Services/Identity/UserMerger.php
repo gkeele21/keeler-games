@@ -41,7 +41,6 @@ class UserMerger
         ['propoff_question_templates', 'created_by'],
         ['questions', 'created_by'],
         ['session_players', 'user_id'],
-        ['team_members', 'user_id'],
     ];
 
     /**
