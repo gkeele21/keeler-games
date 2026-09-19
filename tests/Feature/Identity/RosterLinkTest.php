@@ -148,4 +148,42 @@ class RosterLinkTest extends TestCase
 
         $this->assertCount(0, $matches);
     }
+
+    public function test_links_can_be_exported_and_replayed(): void
+    {
+        $owner = User::factory()->create(['first_name' => 'Fixture', 'last_name' => 'Owner']);
+        $house = $this->household($owner);
+        $hazel = User::factory()->create(['first_name' => 'Hazel', 'last_name' => 'Reed', 'role' => 'guest']);
+        $player = Player::create([
+            'household_id' => $house->id, 'name' => 'Hazel', 'is_guest' => false, 'user_id' => $hazel->id,
+        ]);
+
+        $path = sys_get_temp_dir() . '/links-' . uniqid() . '.json';
+        $this->artisan("players:link-users --export={$path}")->assertSuccessful();
+
+        $decisions = json_decode((string) file_get_contents($path), true);
+        $this->assertCount(1, $decisions);
+        $this->assertSame($player->id, $decisions[0]['player']);
+        $this->assertSame($hazel->id, $decisions[0]['user']);
+
+        // Replaying where it already applies is a no-op, which is what makes it
+        // safe to run on an environment that was linked by hand.
+        $this->artisan("players:link-users --from={$path}")
+            ->expectsOutputToContain('already linked')
+            ->assertSuccessful();
+    }
+
+    public function test_export_skips_the_owners_own_player(): void
+    {
+        $owner = User::factory()->create(['first_name' => 'Fixture', 'last_name' => 'Owner']);
+        $house = $this->household($owner);
+        // ensureDefaultHousehold creates this link itself, so replaying it
+        // would be noise rather than a decision anyone made.
+        Player::create(['household_id' => $house->id, 'name' => 'Fixture Owner', 'is_guest' => false, 'user_id' => $owner->id]);
+
+        $path = sys_get_temp_dir() . '/links-' . uniqid() . '.json';
+        $this->artisan("players:link-users --export={$path}")->assertSuccessful();
+
+        $this->assertFileDoesNotExist($path);
+    }
 }

@@ -22,6 +22,7 @@ class LinkRosterPlayers extends Command
         {--link= : Link, given as PLAYER_ID:USER_ID}
         {--unlink= : Remove the link from a player id}
         {--from= : Apply a decision file (JSON), once per environment}
+        {--export= : Write the links that exist HERE to a decision file}
         {--dry-run : Report what would change without writing}';
 
     protected $description = 'Connect household roster players to the accounts of the same people';
@@ -30,6 +31,10 @@ class LinkRosterPlayers extends Command
     {
         if ($id = $this->option('unlink')) {
             return $this->unlink($linker, (int) $id);
+        }
+
+        if ($file = $this->option('export')) {
+            return $this->export($file);
         }
 
         if ($file = $this->option('from')) {
@@ -186,6 +191,62 @@ class LinkRosterPlayers extends Command
 
         $this->newLine();
         $this->info("{$applied} linked, {$skipped} already done.");
+
+        return self::SUCCESS;
+    }
+
+
+    /**
+     * Capture the links that exist in THIS database as a decision file.
+     *
+     * Links made by hand leave no record, so an environment that has been
+     * linked directly cannot be replayed anywhere else — and unlike a merge,
+     * there is no missing row to notice afterwards. Exporting turns whatever
+     * was done into the same replayable file the rest of this work uses.
+     *
+     * Each household owner's own player is skipped: the app creates that link
+     * itself in ensureDefaultHousehold, so replaying it would be noise.
+     */
+    private function export(string $path): int
+    {
+        $rows = DB::table('players as p')
+            ->join('users as u', 'u.id', '=', 'p.user_id')
+            ->leftJoin('households as h', 'h.id', '=', 'p.household_id')
+            ->whereNotNull('p.user_id')
+            ->orderBy('p.id')
+            ->selectRaw('p.id as pid, p.name as pname, u.id as uid, h.name as hh, h.owner_user_id as owner')
+            ->get();
+
+        $decisions = [];
+
+        foreach ($rows as $r) {
+            if ((int) $r->owner === (int) $r->uid) {
+                continue;
+            }
+
+            $decisions[] = [
+                'player' => (int) $r->pid,
+                'user' => (int) $r->uid,
+                'player_name' => $r->pname,
+                'user_name' => User::find($r->uid)?->name,
+                'note' => 'Exported from ' . config('app.env') . ' on ' . now()->toDateString()
+                    . ($r->hh ? " — {$r->hh} roster." : '.'),
+            ];
+        }
+
+        if (! $decisions) {
+            $this->info('No links to export beyond the household owners\' own players.');
+
+            return self::SUCCESS;
+        }
+
+        if (! is_dir(dirname($path))) {
+            mkdir(dirname($path), 0755, true);
+        }
+
+        file_put_contents($path, json_encode($decisions, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+        $this->info(count($decisions) . " link(s) written to {$path}");
+        $this->line('Commit it, then apply elsewhere with <fg=green>--from=' . $path . '</>');
 
         return self::SUCCESS;
     }

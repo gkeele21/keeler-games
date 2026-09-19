@@ -62,6 +62,21 @@ the names no longer match the ids.
 - **Putting one person on the same roster twice.** The app enforces this when
   adding players by hand; linking respects the same rule.
 
+## If you linked by hand
+
+Links made directly on an environment leave no record, and unlike a merge there
+is no missing row to notice afterwards — the two databases just quietly disagree.
+Capture whatever was done and commit it:
+
+```
+php artisan players:link-users --export=database/merges/roster-links.json
+```
+
+Then apply it everywhere else. Replaying a link that already exists is skipped,
+so it is safe to run against an environment that was linked by hand. Household
+owners' own players are left out: the app creates those links itself in
+`ensureDefaultHousehold`.
+
 ## Order of work
 
 1. `propoff:merge-guests --candidates` — fold duplicate people together
