@@ -241,6 +241,7 @@ class GameInitializationService
         // the final round). Use those explicit picks; fall back to a random
         // eligible question for any slot left unset.
         $sel = is_array($config['question_selection'] ?? null) ? $config['question_selection'] : null;
+        $categoryId = (int) ($config['question_category_id'] ?? 0) ?: null;
         $usedIds = [];
         $order = 0;
 
@@ -253,10 +254,14 @@ class GameInitializationService
                 $question = $qid ? Question::find($qid) : null;
 
                 if (!$question) {
-                    $question = Question::where('game_type_id', $gameSession->game_type_id)
+                    // Difficulty ramps by round (easy → medium → hard): matching
+                    // questions first, then unrated, then any other difficulty.
+                    $difficulty = ['easy', 'medium'][$roundIndex] ?? 'hard';
+                    $question = $this->scopeToGameCategory(Question::where('game_type_id', $gameSession->game_type_id), $categoryId)
                         ->where('is_active', true)
                         ->where('round_type', '!=', 'final')
                         ->whereNotIn('id', $usedIds)
+                        ->orderByRaw('CASE WHEN difficulty = ? THEN 0 WHEN difficulty IS NULL THEN 1 ELSE 2 END', [$difficulty])
                         ->orderBy('times_used')
                         ->inRandomOrder()
                         ->first();
@@ -299,7 +304,7 @@ class GameInitializationService
                 $finalQuestion = $qid ? Question::find($qid) : null;
 
                 if (!$finalQuestion) {
-                    $finalQuestion = Question::where('game_type_id', $gameSession->game_type_id)
+                    $finalQuestion = $this->scopeToGameCategory(Question::where('game_type_id', $gameSession->game_type_id), $categoryId)
                         ->where('is_active', true)
                         ->where('round_type', 'final')
                         ->whereNotIn('id', $usedIds)
@@ -333,6 +338,22 @@ class GameInitializationService
                 'round_number' => $firstQuestion->round_number ?? 1,
             ]);
         }
+    }
+
+    /**
+     * America Says categories are themes. With no game category, categorized
+     * questions are excluded; with one, its questions sort ahead of the
+     * uncategorized ones (which still fill any slots the category can't).
+     */
+    protected function scopeToGameCategory($query, ?int $categoryId)
+    {
+        if (!$categoryId) {
+            return $query->whereNull('category_id');
+        }
+
+        return $query
+            ->where(fn ($q) => $q->where('category_id', $categoryId)->orWhereNull('category_id'))
+            ->orderByRaw('category_id IS NULL');
     }
 
     /**

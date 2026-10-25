@@ -370,6 +370,19 @@ const answerCountOptions = computed(() => {
     qBank.value.forEach((q) => { if (q.round_type === 'final') counts.add(q.answers_count); });
     return Array.from(counts).sort((a, b) => a - b).map((n) => ({ value: n, label: `${n} answer${n === 1 ? '' : 's'}` }));
 });
+// ---- Game category (America Says) ----
+// America Says categories are themes (Halloween, Christmas…). With no category
+// chosen, categorized questions are left out entirely; choosing one makes the
+// picker prefer that category and fill any remaining slots from uncategorized.
+const categoryEnabled = computed(() => gameSlug.value === 'america-says');
+const gameCategoryId = computed<number | null>(() =>
+    categoryEnabled.value ? (settingsForm.settings.question_category_id || null) : null,
+);
+const categoryName = (id: number | null) => (id == null ? null : categoryOptions.value.find((c) => c.value === id)?.label ?? null);
+const gameBank = computed(() => {
+    if (!categoryEnabled.value) return qBank.value;
+    return qBank.value.filter((q) => q.category_id == null || q.category_id === gameCategoryId.value);
+});
 // Which filters to show, driven by the data present in this game's bank.
 const showSource = computed(() => qBank.value.some((q) => q.is_official) && qBank.value.some((q) => !q.is_official));
 const showType = computed(() => qBank.value.some((q) => q.round_type === 'final'));
@@ -377,7 +390,10 @@ const showCategory = computed(() => qBank.value.some((q) => q.category_id != nul
 const showDifficulty = computed(() => qBank.value.some((q) => q.difficulty != null));
 const regularPool = computed(() => {
     const s = questionSearch.value.trim().toLowerCase();
-    return qBank.value.filter((q) => {
+    // Filtering the bank to a category reaches past the game category, so the
+    // host can hand-pick e.g. a Halloween question into an uncategorized game.
+    const base = pickCategory.value ? qBank.value : gameBank.value;
+    return base.filter((q) => {
         if (pickType.value && q.round_type !== pickType.value) return false;
         if (pickType.value === 'final' && pickAnswers.value !== '' && q.answers_count !== pickAnswers.value) return false;
         if (pickSource.value === 'official' && !q.is_official) return false;
@@ -390,10 +406,10 @@ const regularPool = computed(() => {
 });
 const finalByCount = computed<Record<number, BankQuestion[]>>(() => {
     const g: Record<number, BankQuestion[]> = { 1: [], 2: [], 3: [], 4: [] };
-    qBank.value.forEach((q) => { if (q.round_type === 'final' && g[q.answers_count]) g[q.answers_count].push(q); });
+    gameBank.value.forEach((q) => { if (q.round_type === 'final' && g[q.answers_count]) g[q.answers_count].push(q); });
     return g;
 });
-const allFinalPool = computed(() => qBank.value.filter((q) => q.round_type === 'final'));
+const allFinalPool = computed(() => gameBank.value.filter((q) => q.round_type === 'final'));
 // Eligible bank for a given final slot (0-based): tiered by answer count for
 // America Says, or the whole Final pool for Family Feud's flat Fast Money.
 const finalPoolFor = (idx: number): BankQuestion[] =>
@@ -457,14 +473,30 @@ const seenBy = (id: number | null) => (id == null ? 0 : groupSeenCounts.value.ge
 // Prefer the least-used questions: pick at random among those tied at the lowest
 // times_used, so the library rotates through everything before repeating. When a
 // group is present, questions none of them have seen win over already-seen ones.
-const pickRandom = (pool: { id: number; times_used?: number }[], exclude: Set<number>): number | null => {
-    const avail = pool.filter((q) => !exclude.has(q.id));
+// A chosen game category beats both: its questions go first, uncategorized after.
+// Next, a round's target difficulty: matching questions first, then unrated ones,
+// and only then another difficulty.
+const pickRandom = (pool: BankQuestion[], exclude: Set<number>, difficulty: string | null = null): number | null => {
+    let avail = pool.filter((q) => !exclude.has(q.id));
     if (!avail.length) return null;
+    const inCategory = avail.filter((q) => gameCategoryId.value != null && q.category_id === gameCategoryId.value);
+    if (inCategory.length) avail = inCategory;
+    if (difficulty) {
+        const matching = avail.filter((q) => q.difficulty === difficulty);
+        const unrated = avail.filter((q) => q.difficulty == null);
+        if (matching.length) avail = matching;
+        else if (unrated.length) avail = unrated;
+    }
     const unseen = avail.filter((q) => !groupSeenIds.value.has(q.id));
     const pickFrom = unseen.length ? unseen : avail;
     const min = Math.min(...pickFrom.map((q) => q.times_used ?? 0));
     const leastUsed = pickFrom.filter((q) => (q.times_used ?? 0) === min);
     return leastUsed[Math.floor(Math.random() * leastUsed.length)].id;
+};
+// America Says ramps difficulty by round: easy → medium → hard (and hard after).
+const roundDifficulty = (round: number): string | null => {
+    if (gameSlug.value !== 'america-says') return null;
+    return round === 0 ? 'easy' : round === 1 ? 'medium' : 'hard';
 };
 const usedRegular = () => {
     const s = new Set<number>();
@@ -491,7 +523,7 @@ const reconcileSlots = () => {
 
     const ur = new Set<number>();
     regular.forEach((r) => r.forEach((s) => { if (s.id != null) ur.add(s.id); }));
-    regular.forEach((r) => r.forEach((s) => { if (s.id == null) { const id = pickRandom(regularPool.value, ur); if (id != null) { s.id = id; ur.add(id); } } }));
+    regular.forEach((r, i) => r.forEach((s) => { if (s.id == null) { const id = pickRandom(regularPool.value, ur, roundDifficulty(i)); if (id != null) { s.id = id; ur.add(id); } } }));
 
     const uf = new Set<number>();
     final.forEach((s) => { if (s.id != null) uf.add(s.id); });
@@ -501,6 +533,20 @@ const reconcileSlots = () => {
 };
 watch([regularRowCount, regularCols, finalSlotCount], reconcileSlots);
 onMounted(reconcileSlots);
+// Re-roll every slot the host didn't hand-pick. Clearing them all first, then
+// refilling in round order, lets each round claim its difficulty — re-rolling
+// one at a time would leave Round 1 unable to take an easy question parked in
+// Round 3.
+const rerollUnpinned = (groups: { regular?: boolean; final?: boolean } = { regular: true, final: true }) => {
+    if (groups.regular) qsel.value.regular.forEach((r) => r.forEach((s) => { if (!s.pinned) s.id = null; }));
+    if (groups.final) qsel.value.final.forEach((s) => { if (!s.pinned) s.id = null; });
+    reconcileSlots();
+};
+// Changing the game category re-rolls every slot the host didn't hand-pick.
+watch(gameCategoryId, () => {
+    pickCategory.value = '';
+    rerollUnpinned();
+});
 
 // ---- active slot + assignment ----
 type ActiveSlot = { group: 'regular'; round: number; team: number } | { group: 'final'; index: number };
@@ -552,14 +598,14 @@ const swapSlot = (a: ActiveSlot) => {
     const s = slotOf(a);
     if (!s) return;
     const id = a.group === 'regular'
-        ? pickRandom(regularPool.value, usedRegular())
+        ? pickRandom(regularPool.value, usedRegular(), roundDifficulty(a.round))
         : pickRandom(finalPoolFor(a.index), usedFinal());
     if (id != null) { s.id = id; s.pinned = false; }
 };
 const swapRegular = (i: number, j: number) => swapSlot({ group: 'regular', round: i, team: j });
 const swapFinal = (i: number) => swapSlot({ group: 'final', index: i });
-const shuffleRegular = () => qsel.value.regular.forEach((r, i) => r.forEach((s, j) => { if (!s.pinned) swapRegular(i, j); }));
-const shuffleFinal = () => qsel.value.final.forEach((s, i) => { if (!s.pinned) swapFinal(i); });
+const shuffleRegular = () => rerollUnpinned({ regular: true });
+const shuffleFinal = () => rerollUnpinned({ final: true });
 
 // ---- Swap mode: exchange two already-slotted regular questions (reorder by
 // difficulty across rounds). Distinct from per-slot Shuffle (random from bank)
@@ -605,13 +651,21 @@ const slotText = (id: number | null) => (id != null ? questionById.value.get(id)
 const slotMeta = (id: number | null) => {
     const q = id != null ? questionById.value.get(id) : null;
     if (!q) return '';
-    return `${q.answers_count} answers · used ${q.times_used}×`;
+    return `${categoryEnabled.value && q.category ? `${q.category} · ` : ''}${q.answers_count} answers · used ${q.times_used}×`;
 };
+// Difficulty badge — same colors as the Question Library.
+const slotDifficulty = (id: number | null) => (id != null ? questionById.value.get(id)?.difficulty ?? null : null);
+const difficultyClass = (d: string) =>
+    d === 'easy' ? 'text-primary border-primary/40'
+    : d === 'hard' ? 'text-danger border-danger/40'
+    : 'text-warning border-warning/40';
+const difficultyLabel = (d: string) => d.charAt(0).toUpperCase() + d.slice(1);
 // Usage count alone — the tiered final slots already state the answer count via
 // their "Needs N answers" hint, so we only append how often it's been played.
 const slotUsed = (id: number | null) => {
     const q = id != null ? questionById.value.get(id) : null;
-    return q ? `used ${q.times_used}×` : '';
+    if (!q) return '';
+    return `${categoryEnabled.value && q.category ? `${q.category} · ` : ''}used ${q.times_used}×`;
 };
 
 const questionSelectionReady = computed(() => {
@@ -879,6 +933,16 @@ const copyDisplayUrl = () => {
                     <!-- Slots — left column on desktop, and first when stacked on mobile so
                          clicking a slot keeps your scroll position (the bank grows below it). -->
                     <div class="min-w-0">
+                        <div v-if="categoryEnabled && categoryOptions.length" class="mb-4 border-b border-border pb-4">
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-semibold text-body">Category</span>
+                                <div class="w-48"><Select v-model="settingsForm.settings.question_category_id" :options="categoryOptions" allow-empty empty-label="None" /></div>
+                            </div>
+                            <p class="mt-1.5 text-xs text-subtle">
+                                <template v-if="gameCategoryId">{{ categoryName(gameCategoryId) }} questions fill the slots first; any left over use regular questions.</template>
+                                <template v-else>Categorized questions are left out. Pick a category for a themed game.</template>
+                            </p>
+                        </div>
                         <div class="mb-2 flex items-center gap-2">
                             <h4 class="text-sm font-semibold text-body">Rounds</h4>
                             <Button :variant="swapMode ? 'primary' : 'muted'" size="xs" class="ml-auto" @click="toggleSwapMode">{{ swapMode ? '⇄ Swapping…' : '⇄ Swap' }}</Button>
@@ -905,6 +969,7 @@ const copyDisplayUrl = () => {
                                                 <template v-else>{{ slot.id ? slotMeta(slot.id) : 'Face-off — both teams play' }}</template>
                                             </span>
                                         </span>
+                                        <span v-if="slotDifficulty(slot.id)" :class="['mt-0.5 flex-none rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase', difficultyClass(slotDifficulty(slot.id)!)]">{{ difficultyLabel(slotDifficulty(slot.id)!) }}</span>
                                         <span v-if="seenBy(slot.id)" class="flex-none rounded-full border border-warning/50 bg-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning" :title="seenBy(slot.id) + ' of tonight\'s players have already been asked this'">Seen · {{ seenBy(slot.id) }}</span>
                                         <Button v-if="!swapMode" variant="muted" size="xs" class="flex-none" @click.stop="swapRegular(i, j)">⟳ Shuffle</Button>
                                     </div>
@@ -974,6 +1039,8 @@ const copyDisplayUrl = () => {
                             >
                                 <span class="min-w-0 flex-1 text-sm text-body"><BlankText :text="q.question_text" /></span>
                                 <span class="flex flex-none flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
+                                    <span v-if="q.difficulty" :class="['flex-none rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase', difficultyClass(q.difficulty)]">{{ difficultyLabel(q.difficulty) }}</span>
+                                    <span v-if="categoryEnabled && q.category" class="flex-none whitespace-nowrap rounded border border-gold/40 px-1.5 py-0.5 text-[10px] font-bold uppercase text-gold">{{ q.category }}</span>
                                     <span v-if="q.round_type === 'final'" class="flex-none rounded border border-info/40 px-1.5 py-0.5 text-[10px] font-bold uppercase text-info">Final</span>
                                     <span v-if="q.id === activeCurrentId" class="flex-none rounded-full border border-primary/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">Current</span>
                                     <span v-else-if="assignedLabels.has(q.id)" class="flex-none whitespace-nowrap rounded-full border border-primary/50 px-2 py-0.5 text-[10px] font-semibold text-primary">{{ assignedLabels.get(q.id) }}</span>
