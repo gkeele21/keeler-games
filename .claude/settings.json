@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-team": {
+      "source": {
+        "source": "github",
+        "repo": "gkeele21/claude-team"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "team-workflow@claude-team": true,
+    "dev-workflow@claude-team": true
+  }
+}
